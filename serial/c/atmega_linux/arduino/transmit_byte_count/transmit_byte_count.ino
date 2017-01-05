@@ -13,8 +13,6 @@ void loop() {
   /** write binary data
   *
   * do not use the print function as it sends ASCII */
-  //Serial.write(serialDataCount & 0xFF);
-  //Serial.write(serialDataCount >> 8);
   Serial.write(serialDataCount);
 
   // when this is an unsigned char, it will run from 0 to 255

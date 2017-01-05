@@ -1,6 +1,25 @@
-/*
+/*  Purpose: Signal interrupts detect when serial bytes are received.
+*            Echos serial bytes received to console.
 *
-*   Filename: linuxSerialSide.c
+*   Description:
+*
+*       - Serial connection
+*           - Default serial device setting: /dev/ttyUSB0
+*               - Command line override of default requires string arguments of
+*                   -device followed by the device path.
+*
+*               Example: for a device path of /dev/ttyACM0, command line arguments
+*                        are -device /dev/ttyACM0 
+*           
+*           - Default baud rate is 9600. 
+*               - Command line override of default requires string arguments of
+*                 -baud followed by the baud rate.
+*                 
+*                 Example: for a baud rate of 58400, command line arguments are
+*                           -baud 58400
+*
+*
+*   Filename: linux_serial_signal_interrupt.c
 *
 *   Program written to test RS-232 serial communication between this program
 *   runnning on a Linux OS and an atmega microprocessor
@@ -14,27 +33,27 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <string>
 #include <string.h>
+#include <string>           // c++ string library
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
 
 
-
 enum ErrorConditions { SERIAL_OPEN_ERROR = -1, SIG_ACTION_ERROR = -2, COMMAND_LINE_ERROR = -3};
+
 
  // Program constants
 const char *SERIAL_DEVICE_NAME = "/dev/ttyUSB0";
 const long ONE_SEC_IN_USEC = 1000000L;
+const int MAX_DATA_BYTES = 5;
 
 
 
+/// IO Signals
 
-// IO Signals
-
-/* struct sigaction{
+/** struct sigaction{
     void (*sa_handler)(int);
     void (*sa_sigaction)(int, siginfo_t *, void*);
     sigset_t	sa_mask;
@@ -107,7 +126,6 @@ int initialize_serial(const char *serial_device_name, int baud_rate)
     fprintf(stderr,"fcntlReturn = %d\n", fcntlReturn);
 
 
-
     // Get current serial port settings
     tcgetattr(serial_port_fd, &oldtio);
 
@@ -146,6 +164,7 @@ int initialize_serial(const char *serial_device_name, int baud_rate)
     return serial_port_fd;
 }
 
+
 int  set_baud_speed(int serial_baud_rate)
 {
     switch(serial_baud_rate)
@@ -154,6 +173,14 @@ int  set_baud_speed(int serial_baud_rate)
         return B2400;
     case 9600:
         return B9600;
+    case 19200:
+        return B19200;
+    case 38400:
+        return B38400;
+    case 57600:
+        return B57600;
+    case 115200:
+        return B115200;
     default:
         return B9600;
     }
@@ -233,7 +260,11 @@ ssize_t read_serial(int serial_port_fd, long int delay_time, uint8_t* readbuffer
 
 void signal_handler_IO(int sig)
 {
-    // uncomment psignal for debugging.
+    /* psignal used for debugging purposes
+       debugging console output lets us know this function was
+       triggered. Prints the string message and a string for the
+       variable sig
+       */
     psignal(sig, "signal_handler_IO");
     wait_flag = 0;
 }
@@ -263,9 +294,14 @@ bool parse_command_line(int argc, char* argv[], std::string& serialDevice, int *
 
 int main(int argc, char *argv[])
 {
-    int fd;
+    int fd;                     // serial file descriptor
     ssize_t bytes_read;
-    uint8_t dataBuffer[1];
+    uint8_t dataBuffer[1];      // stores data byte received
+
+    uint8_t allData[MAX_DATA_BYTES];    // stores all data bytes received
+    uint8_t readErrorCount;
+    
+
     std::string serialDeviceInput(SERIAL_DEVICE_NAME);
     int baudRateInput = 9600;
 
@@ -298,25 +334,38 @@ int main(int argc, char *argv[])
             break;
     }
 
-    fprintf(stderr, "")
-    while(countReceived < 5)
+    fprintf(stderr, "main: entering while loop, remains here until %u bytes are received\n\n", MAX_DATA_BYTES);
+    readErrorCount = 0;
+    while(countReceived < MAX_DATA_BYTES)
     {
         if(wait_flag == 0)      // signal interrupt sets wait flag to zero
         {
             bytes_read = read_serial(fd, 100, &dataBuffer[0], 1);
-            fprintf(stderr, "dataBuffer[0] %d\n", dataBuffer[0]);
+            if(bytes_read > 0){
+                allData[countReceived++] = dataBuffer[0];
+                fprintf(stderr, "count received: %d\n", countReceived);
+            }
+            else {
+                ++readErrorCount;
+            }
             wait_flag = 1;
         }
 
-        if(bytes_read > 0)
-        {
-            ++countReceived;
-        }
-        else
-        {
-            fprintf(stderr, "error: bytes_read %ld", bytes_read);
-        }
+        
     } // end while
+
+    fprintf(stderr, "\nList of all data received\n");
+    for(int i = 0; i < countReceived; i++){
+        fprintf(stderr, "%u ", allData[i]);
+    }
+    fprintf(stderr, "\n");
+
+
+    // program is treating readErrorCount as ASCII, not sure why
+    if(readErrorCount != '0'){
+        fprintf(stderr, "\nread error count: %d\n", readErrorCount);
+    }
+    
 
     close(fd);		// close serial port
     fd = -1;
