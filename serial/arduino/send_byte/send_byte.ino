@@ -19,13 +19,15 @@
 */
 enum STATE { INITIAL = 1, WAIT = 2, SEND_COUNT = 3, RESET = 4, END = 5}; 
 
+
+const unsigned int MAX_COUNT = 5;
 byte count;
 
 enum STATE state;
 
 void setup(){
   count = 0;
-  Serial.begin(57600);
+  Serial.begin(9600);
   state = INITIAL;
   delay(1000);
 }
@@ -45,7 +47,6 @@ void loop(){
       if(Serial.available() > 0){
         char readByte = Serial.read();
         if( readByte = 'r'){
-          Serial.print('r');    // echo back to sender
           state = SEND_COUNT;
           delay(500);
         }
@@ -55,7 +56,7 @@ void loop(){
     case SEND_COUNT:
       Serial.write(count);
       count++;
-      if(count > 5){
+      if(count >= MAX_COUNT){
         state = END;
       }
       delay(1000);

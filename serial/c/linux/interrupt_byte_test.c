@@ -40,7 +40,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "cserial.h"
+#include <cserial.h>
 
 
 enum ErrorConditions { SIG_ACTION_ERROR = -2, COMMAND_LINE_ERROR = -3};
@@ -112,15 +112,15 @@ int main(int argc, char *argv[])
 {
     int fd;                     // serial file descriptor
     ssize_t bytes_read;
-    uint8_t dataBuffer[1];      // stores data byte received
+    uint8_t dataBuffer[2];      // stores data byte received
 
     uint8_t allData[MAX_DATA_BYTES];    // stores all data bytes received
     uint8_t readErrorCount;
-    uint8_t first_byte;
+    uint8_t firstByte = 'z';	
 
 
-    char serialDeviceInput[32];
-    strcpy(serialDeviceInput, SERIAL_DEVICE_NAME);
+    const char* serialDeviceInput = "/dev/ttyACM0";
+    //strcpy(serialDeviceInput, SERIAL_DEVICE_NAME);
 
     int baudRateInput = 9600;
 
@@ -129,12 +129,13 @@ int main(int argc, char *argv[])
     // set wait because a signal interrupt has not yet been recognized
     wait_flag = 1;
 
-    if(!parse_command_line(argc, argv, serialDeviceInput, &baudRateInput))
+    /*if(!parse_command_line(argc, argv, serialDeviceInput, &baudRateInput))
     {
         fprintf(stderr, "main: program terminating, command line error\n");
         fprintf(stderr, "usage: ./eserial -device /dev/ttyS0 -baud 9600\n");
         return COMMAND_LINE_ERROR;
     }
+    */
 
 
     // install the signal handler before making the device asynchronous
@@ -166,6 +167,22 @@ int main(int argc, char *argv[])
             break;
     }
 
+    while(firstByte != 'i'){
+    	if(wait_flag == 0){
+    		bytes_read = read_serial(fd, 100, &dataBuffer[0], 1);
+    		if(bytes_read > 0){
+    			firstByte = dataBuffer[0];
+    		}
+    		wait_flag = 1;
+    	}
+    }
+
+    fprintf(stderr, "sending ready signal\n");
+    ssize_t bytes_written = write_byte(fd, 'r');
+    if(bytes_written != 1){
+        fprintf(stderr, "error writing ready byte \'r\' to serial port\n");
+    }
+
     fprintf(stderr, "main: entering while loop, remains here until %u bytes are received\n\n", MAX_DATA_BYTES);
     readErrorCount = 0;
     while(countReceived < MAX_DATA_BYTES)
@@ -175,10 +192,10 @@ int main(int argc, char *argv[])
             bytes_read = read_serial(fd, 100, &dataBuffer[0], 1);
             if(bytes_read > 0){
                 allData[countReceived] = dataBuffer[0];
-                fprintf(stderr, "count received: %d, allData[%d]: %d, dataBuffer[0]: %d, %#x\n", countReceived,
+                fprintf(stderr, "count received: %u, allData[%u]: %3u, dataBuffer[0]: %3u, %#x\n", countReceived,
                             countReceived, allData[countReceived], dataBuffer[0], dataBuffer[0]);
                 if(countReceived == 0)
-                    first_byte = allData[0];
+                    firstByte = allData[0];
                 ++countReceived;
             }
             else {
@@ -194,10 +211,11 @@ int main(int argc, char *argv[])
     fd = -1;
 
     // Display data received
+    fprintf(stderr, "countReceived: %u\n", countReceived);
     fprintf(stderr, "\nList of all data received\n");
-    fprintf(stderr, "first byte: %u\n", first_byte);
+    fprintf(stderr, "first byte: %u\n", firstByte);
     for(int i = 0; i < countReceived; i++){
-        fprintf(stderr, "allData[%d]: %u ", i, allData[i]);
+        fprintf(stderr, "allData[%d]: %3d ", i, allData[i]);
     }
 
     fprintf(stderr, "\n");
