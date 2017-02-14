@@ -4,12 +4,11 @@
  *  Uses pulseIn function for timing.
  *
  *  Author: willydlw
- *
  *  Date: 2/14/17
  *
  *  Testing environment
  *    Arduino 1.8.1, Windows 8.1,  Mega 2560
- *    Arduino 1.0.5, Ubuntu 16.04, Mega 2560
+ *    Arduino 1.8.1, Ubuntu 16.04, Mega 2560
  *    
  */
 
@@ -25,7 +24,8 @@ void setup() {
   delay(2000);
 }
 
-void loop() {
+void get_ultrasonic_measurement(void){
+  
   // 1. Set trigger line low for a brief interval, 2 microseconds
   digitalWrite(triggerPin, LOW);
   delayMicroseconds(2);
@@ -35,6 +35,7 @@ void loop() {
   delayMicroseconds(10);
   // 4. Pull trigger line low
   digitalWrite(triggerPin, LOW);
+  
   /* 5. Start timer
      6. Continue timing until echo line falls from high to low
      7. Stop timer
@@ -48,6 +49,12 @@ void loop() {
    *  ___|    |___
    */
   responseTime = pulseIn(echoPin, HIGH);
+}
+
+void loop() {
+
+  get_ultrasonic_measurement();
+  
   // Calculate distance to object
   distanceCm = (unsigned int)responseTime / 58UL;
 
