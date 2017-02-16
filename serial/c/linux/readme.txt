@@ -8,7 +8,7 @@ The programs are under development and not ready for distribution.
 
 Program pairs
 
-1. Arduino send_byte and Linux interrupt_byte_test.c
+1. Arduino send_byte_state_machine and Linux interrupt_byte_test.c
 
 
 

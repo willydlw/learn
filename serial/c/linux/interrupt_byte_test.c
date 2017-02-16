@@ -51,7 +51,7 @@ const char *SERIAL_DEVICE_NAME = "/dev/ttyUSB0";
 const long ONE_SEC_IN_USEC = 1000000L;
 
 
-#define MAX_DATA_BYTES 5
+#define MAX_DATA_BYTES 25
 
 
 
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
     }
 
     fprintf(stderr, "sending ready signal\n");
-    ssize_t bytes_written = write_byte(fd, 'r');
+    ssize_t bytes_written = write_byte(fd, 's');
     if(bytes_written != 1){
         fprintf(stderr, "error writing ready byte \'r\' to serial port\n");
     }
@@ -192,10 +192,6 @@ int main(int argc, char *argv[])
             bytes_read = read_serial(fd, 100, &dataBuffer[0], 1);
             if(bytes_read > 0){
                 allData[countReceived] = dataBuffer[0];
-                fprintf(stderr, "count received: %u, allData[%u]: %3u, dataBuffer[0]: %3u, %#x\n", countReceived,
-                            countReceived, allData[countReceived], dataBuffer[0], dataBuffer[0]);
-                if(countReceived == 0)
-                    firstByte = allData[0];
                 ++countReceived;
             }
             else {
@@ -213,9 +209,9 @@ int main(int argc, char *argv[])
     // Display data received
     fprintf(stderr, "countReceived: %u\n", countReceived);
     fprintf(stderr, "\nList of all data received\n");
-    fprintf(stderr, "first byte: %u\n", firstByte);
     for(int i = 0; i < countReceived; i++){
-        fprintf(stderr, "allData[%d]: %3d ", i, allData[i]);
+    	if( !(i%5)) fprintf(stderr, "\n");
+        fprintf(stderr, "%5d ", allData[i]);
     }
 
     fprintf(stderr, "\n");
