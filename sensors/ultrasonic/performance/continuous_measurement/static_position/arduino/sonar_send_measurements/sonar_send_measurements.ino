@@ -128,18 +128,17 @@ void send_distance_measurements(void){
 
   // transmit number of measurements
   Serial.print(startMarker);
-  Serial.print("Num Measurements,");
-  Serial.print(asize);
+  Serial.print(90);
   Serial.print(",");
 
-  for(i = 0; i < asize; ++i){
+  for(i = 0; i < asize-1; ++i){
     Serial.print(distance[i]);
     Serial.print(",");
   }
 
   // send the last distance measurement with no following comma
-  Serial.print(endMarker);
-  Serial.println("");
+  Serial.print(distance[i]);
+  Serial.println(endMarker);
   Serial.flush();
 }
 

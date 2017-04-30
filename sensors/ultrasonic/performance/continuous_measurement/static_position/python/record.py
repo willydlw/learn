@@ -88,7 +88,7 @@ print(ser.name)
 
 
 # open file for writing
-fileObject = open("data.txt", "w")
+fileObject = open("data.csv", "w")
 
 if not(fileObject.closed):
 	print "file " + fileObject.name + ", open"
