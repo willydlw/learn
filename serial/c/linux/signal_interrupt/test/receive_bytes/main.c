@@ -1,28 +1,41 @@
-/*  Purpose: Signal interrupts detect when serial bytes are received.
-*            Echos serial bytes received to console.
+/*  Purpose: signal I0 interrupts detect when serial bytes are received.
+*            displays message each time signal_handler_IO function executes
 *
-*   Description:
+*            serial bytes received are stored and written to stderr
+*            after MAX_DATA_BYTES have been read.
+*            
+*            When there is a signalIO interrupt and a byte is not
+*            successfully read, the read error count is incremented.
+*
+*            read error count only displays when greater than zero
+*
+*            program terminates after reading MAX_DATA_BYTES
+*
+*
+*   Input:
 *
 *       - Serial connection
-*           - Default serial device setting: /dev/ttyUSB0
+*           - Default serial device setting: /dev/ttyACM0
 *               - Command line override of default requires string arguments of
 *                   -device followed by the device path.
 *
-*               Example: for a device path of /dev/ttyACM0, command line arguments
-*                        are -device /dev/ttyACM0
+*               Example: for a device path of /dev/ttyUSB0, command line arguments
+*                        are -device /dev/ttyUSB0
 *
 *           - Default baud rate is 9600.
 *               - Command line override of default requires string arguments of
 *                 -baud followed by the baud rate.
 *
-*                 Example: for a baud rate of 58400, command line arguments are
-*                           -baud 58400
+*                 Example: for a baud rate of 57600, command line arguments are
+*                           -baud 57600
 *
 *
-*   Filename: linux_serial_signal_interrupt.c
+*   Filename: main.c
 *
-*   Program written to test RS-232 serial communication between this program
-*   runnning on a Linux OS and an atmega microprocessor
+*   Program written to test serial communication between this program
+*   runnning on a Linux OS and an Arduino UNO R3
+*
+*
 *
 */
 
@@ -43,15 +56,19 @@
 #include <cserial.h>
 
 
-enum ErrorConditions { SIG_ACTION_ERROR = -2, COMMAND_LINE_ERROR = -3};
+#include "../command_line.h"
+
+
+typedef enum signal_error_t { SIG_ACTION_ERROR = -2 } SignalError;
 
 
 // Program constants
-const char *SERIAL_DEVICE_NAME = "/dev/ttyUSB0";
+const char *SERIAL_DEVICE_NAME = "/dev/ttyACM0";
 const long ONE_SEC_IN_USEC = 1000000L;
 
 
 #define MAX_DATA_BYTES 25
+#define SERIAL_DEVICE_NAME_LENGTH  64
 
 
 
@@ -71,7 +88,7 @@ static volatile sig_atomic_t wait_flag = 1;
 
 /****** Function Prototypes *****/
 void signal_handler_IO(int status);
-int parse_command_line(int argc, char* argv[], char* serialDevice, int *baudRate);
+
 
 
 void signal_handler_IO(int sig)
@@ -86,26 +103,7 @@ void signal_handler_IO(int sig)
 }
 
 
-int parse_command_line(int argc, char* argv[], char* serialDevice, int *baudRate)
-{
-    int i = 1;
-    if(argc < 2)
-        return 0;
-    while(i < argc-1)
-    {
-        /// strcmp returns 0 when they are equal
-        if(!strcmp(argv[i],"--baud") || !strcmp(argv[i],"-baud"))
-           {
-            *baudRate = atoi(argv[i+1]);
-           }
-        else if(!strcmp(argv[i],"--device") || !strcmp(argv[i],"-device"))
-            strcpy(serialDevice,argv[i+1]);     // does not ensure string length is correct
-        else
-            fprintf(stderr, "Unknown command line argument: %s\n", argv[i]);
-        i = i + 2;
-    }
-    return 1;
-}
+
 
 
 int main(int argc, char *argv[])
@@ -114,28 +112,27 @@ int main(int argc, char *argv[])
     ssize_t bytes_read;
     uint8_t dataBuffer[2];      // stores data byte received
 
-    uint8_t allData[MAX_DATA_BYTES];    // stores all data bytes received
+    uint8_t allData[MAX_DATA_BYTES] = {0};    // stores all data bytes received
     uint8_t readErrorCount;
-    uint8_t firstByte = 'z';	
+    	
 
+    char serialDevicePath[SERIAL_DEVICE_NAME_LENGTH];
+    strcpy(serialDevicePath, SERIAL_DEVICE_NAME);
 
-    const char* serialDeviceInput = "/dev/ttyACM0";
-    //strcpy(serialDeviceInput, SERIAL_DEVICE_NAME);
-
-    int baudRateInput = 9600;
+    int baudRate = 9600;
 
     uint16_t countReceived = 0;
 
     // set wait because a signal interrupt has not yet been recognized
     wait_flag = 1;
 
-    /*if(!parse_command_line(argc, argv, serialDeviceInput, &baudRateInput))
-    {
-        fprintf(stderr, "main: program terminating, command line error\n");
-        fprintf(stderr, "usage: ./eserial -device /dev/ttyS0 -baud 9600\n");
-        return COMMAND_LINE_ERROR;
-    }
-    */
+    // handle command line arguments
+    process_command_line_arguments(argc, argv, serialDevicePath, &baudRate, SERIAL_DEVICE_NAME_LENGTH);
+
+    
+    // display serial device and baud rate input 
+    fprintf(stderr, "\n\n*****  INPUT SETTINGS  *****\n\n");
+    fprintf(stderr, "serial device: %s, baud rate: %d\n\n", serialDevicePath, baudRate);
 
 
     // install the signal handler before making the device asynchronous
@@ -143,14 +140,14 @@ int main(int argc, char *argv[])
     saio.sa_handler = signal_handler_IO;
     saio.sa_flags = 0;
     saio.sa_restorer = NULL;
+
     /* int sigaction (int signum, const struct sigaction *act, struct sigaction *oldact); */
-    if(sigaction(SIGIO, &saio, NULL) < 0)
-    {
+    if(sigaction(SIGIO, &saio, NULL) < 0){
         fprintf(stderr, "Init_Serial, sigaction error\n");
         return SIG_ACTION_ERROR;
     }
 
-    fd = initialize_serial(serialDeviceInput, baudRateInput);
+    fd = initialize_serial(serialDevicePath, baudRate);
 
     switch(fd)
     {
@@ -167,24 +164,15 @@ int main(int argc, char *argv[])
             break;
     }
 
-    while(firstByte != 'i'){
-    	if(wait_flag == 0){
-    		bytes_read = read_serial(fd, 100, &dataBuffer[0], 1);
-    		if(bytes_read > 0){
-    			firstByte = dataBuffer[0];
-    		}
-    		wait_flag = 1;
-    	}
-    }
 
-    fprintf(stderr, "sending ready signal\n");
-    ssize_t bytes_written = write_byte(fd, 's');
-    if(bytes_written != 1){
-        fprintf(stderr, "error writing ready byte \'r\' to serial port\n");
-    }
+    // now that serial port is open, and asynchronous signal interrupts are set up
+    // we enter the main processing loop.
 
+    fprintf(stderr, "\n\n******  PROCESSING  *****\n\n");
     fprintf(stderr, "main: entering while loop, remains here until %u bytes are received\n\n", MAX_DATA_BYTES);
+
     readErrorCount = 0;
+
     while(countReceived < MAX_DATA_BYTES)
     {
         if(wait_flag == 0)      // signal interrupt sets wait flag to zero
@@ -194,27 +182,28 @@ int main(int argc, char *argv[])
                 allData[countReceived] = dataBuffer[0];
                 ++countReceived;
             }
-            else {
+            else {              // signal interrupt occurred, but no bytes were read
                 ++readErrorCount;
             }
-            wait_flag = 1;
+            wait_flag = 1;      // reset wait flag to 1 after byte has been processed
         }
 
 
     } // end while
 
     close_serial(fd);		// close serial port
-    fd = -1;
+    fd = -1;                // to avoid accidental use, make invalid
 
     // Display data received
-    fprintf(stderr, "countReceived: %u\n", countReceived);
+    fprintf(stderr, "\ncountReceived: %u\n", countReceived);
     fprintf(stderr, "\nList of all data received\n");
+
     for(int i = 0; i < countReceived; i++){
     	if( !(i%5)) fprintf(stderr, "\n");
         fprintf(stderr, "%5d ", allData[i]);
     }
 
-    fprintf(stderr, "\n");
+    fprintf(stderr, "\n\n");
 
 
     // only display non-zero values of read error count

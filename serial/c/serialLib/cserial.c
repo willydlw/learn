@@ -195,6 +195,43 @@ ssize_t read_serial(int serial_port_fd, long int delay_time, uint8_t* readbuffer
 
 }
 
+
+
+/**
+*\fn int write_byte(int fd, uint8_t byte)
+*
+*\param[in]
+*   	fd - file descriptor
+*   	byte - data byte to write
+*
+*\return
+*       Success - returns 1
+*       Failure - returns 0
+*
+*/
+ssize_t write_byte(int fd, uint8_t byte)
+{
+    return write(fd, &byte, 1);
+}
+
+/**
+*\fn int write_buffer(int fd, const char* str)
+*
+*\param[in]
+*   	fd - file descriptor
+*   	str - data string to write
+*
+*\return
+*       returns number of bytes written
+*
+*/
+ssize_t write_buffer(int fd, const char* str)
+{
+    return write(fd, str, strlen(str));
+}
+
+
+
 int close_serial(int fd){
 
     return close(fd);
