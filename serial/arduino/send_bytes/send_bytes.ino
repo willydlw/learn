@@ -9,14 +9,14 @@
 unsigned int count = 0;
 
 const byte startMarker = '<';
-const byte sensorId[2] = {'L','F'};
+const byte sensorId = 'Z';
 const byte endMarker = '>';
 
 // index 0 start marker
 // index 1,2 device id
 // index 3, 4 reserved for 2 byte count
 // index 5  end marker
-byte sendCountBuffer[6];  
+byte sendCountBuffer[5];  
 
 void setup(){
   
@@ -25,19 +25,19 @@ void setup(){
 
 
   sendCountBuffer[0] = startMarker;
-  sendCountBuffer[1] = sensorId[0];
-  sendCountBuffer[2] = sensorId[1];
-  sendCountBuffer[5] = endMarker;
+  sendCountBuffer[1] = sensorId;
+
+  sendCountBuffer[4] = endMarker;
 }
 
 void loop(){
-  sendCountBuffer[3] = (byte)(count >> 8);  // msb
-  sendCountBuffer[4] = (byte)count;         // lsb
+  sendCountBuffer[2] = (byte)(count >> 8);  // msb
+  sendCountBuffer[3] = (byte)count;         // lsb
   
-  Serial.write(sendCountBuffer, 6);
+  Serial.write(sendCountBuffer, 5);
   
   count++;
-  delay(500);  
+  delay(100);  
         
 }
 
