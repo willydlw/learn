@@ -1,9 +1,19 @@
 #include "serial.h"
 
 
+#include <stdio.h>     
+#include <string.h>         // strerror 
+#include <unistd.h>         // UNIX standard function definitions
+#include <fcntl.h>          // File control definitions
+#include <errno.h>          // Error number definitions
+#include <termios.h>        // POSIX terminal control definitions
+#include <sys/ioctl.h>
+
+
+
 
 /**
-* NAME : int initialize_serial(const char *serial_device_name, int baud_rate)
+* NAME : int serial_init(const char *serial_device_name, int baud_rate)
 *
 * DESCRIPTION: opens serial port
 *
@@ -37,7 +47,7 @@
 *       Error messages are sent to stderr stream
 *
 */
-int initialize_serial(const char *serial_device_name, int baud_rate)
+int serial_init(const char *serial_device_name, int baud_rate)
 {
     int serial_port_fd;
     int bspeed; 
@@ -47,7 +57,9 @@ int initialize_serial(const char *serial_device_name, int baud_rate)
     serial_port_fd = open(serial_device_name, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if(serial_port_fd < 0)             // open returns -1 on error
     {
-        fprintf(stderr, "Error: %s, serial port not open, errno -%s\n", __FUNCTION__, strerror(errno));
+        fprintf(stderr, "error: %s, serial port not open, errno -%s\n", 
+                    __FUNCTION__, strerror(errno));
+
         fprintf(stderr, "serial device name: %s\n", serial_device_name);
         return -1;
     }
@@ -65,8 +77,8 @@ int initialize_serial(const char *serial_device_name, int baud_rate)
     // set baud rate
     bspeed = set_baud_speed(baud_rate);
     if(bspeed != -1){
-        cfsetispeed(&terminalSettings, brate);
-        cfsetospeed(&terminalSettings, brate);
+        cfsetispeed(&terminalSettings, bspeed);
+        cfsetospeed(&terminalSettings, bspeed);
     }
     else{
         return -1;
@@ -160,7 +172,122 @@ int  set_baud_speed(int baud_rate)
     case 115200:
         return B115200;
     default:
-        fprintf(stderr, "error: %s, baud rate %d not supported\n", __FUNCTION__, baud_rate);
+        fprintf(stderr, "error: %s, baud rate %d not supported\n", 
+                    __FUNCTION__, baud_rate);
         return -1;
     }
+}
+
+
+
+/**
+* NAME : ssize_t serial_read(int fd, void *buf, size_t count)
+*
+* DESCRIPTION: attempts to read up to count bytes from the file descriptor fd 
+*              into the buffer starting at buf
+*
+* INPUTS: 
+*   Parameters:
+*       int             fd                      file descriptor
+*       size_t          count                   max number of bytes to read 
+*   Globals:
+*       none
+*
+* OUTPUTS:
+*   Parameters:
+*       uint8_t*        buf                     bytes read are stored in buffer
+*   Return:
+*       type:           ssize_t            
+*       values:
+*           success     number of bytes read
+*           failure     -1 and errno is set appropriately
+*
+*      
+* NOTES:
+*       
+*
+*/
+ssize_t serial_read(int fd, uint8_t *buf, size_t count){
+
+    // when operating in raw mode, read(2) system call will return however many 
+    // characters are actually available in the serial input buffers
+    return read(fd, buf, count);
+}
+
+
+
+
+/**
+* NAME : ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until, int timeout, ssize_t *bytes_read)
+*
+* DESCRIPTION: attempts to read bytes from the file descriptor fd
+*              into the buffer starting at buf.
+*
+*              Stops after reading and storing the until byte.
+*              Stops after reading buf_max bytes.
+*              Stops after timeout.
+*
+* INPUTS: 
+*   Parameters:
+*       int             fd                      file descriptor
+*       int             buf_max                 maximum bytes to read
+*       uint8_t         until                   byte that ends read
+*       int             timeout                 stop reading after this much time (msec)
+*   Globals:
+*       none
+*
+* OUTPUTS:
+*   Parameters:
+*       uint8_t*        buf                     bytes read are stored in buffer
+*       ssize_t*        bytes_read              number of bytes read and stored in buf
+*   Return:
+*       type:           ssize_t            
+*       values:
+*           success     READ_UNTIL
+*           failure     READ_FAILURE
+*           failure     READ_TIMEOUT
+*
+*      
+* NOTES:
+*
+*       It is possible that bytes will be read and the function will timeout.
+*       Check the bytes_read value to avoid losing bytes on a timeout condition.
+*
+*/
+ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until, 
+                            int timeout, ssize_t *bytes_read)
+{
+    uint8_t b[1];           // read requires an array
+    ssize_t i = 0;
+
+    *bytes_read = 0;
+
+    do {
+        ssize_t n = read(fd, b, 1);         // read a char at a time
+
+        if( n == -1){
+            return READ_FAILURE;                      // read failed
+        }
+
+        if( n == 0 ) {                      
+            usleep( 1 * 1000 );             // wait 1 msec, try again
+            timeout--;
+            if( timeout==0 ){
+                return READ_TIMEOUT;
+            }
+
+            continue;
+        }
+
+        // debug
+        fprintf(stderr, "%s: i = %ld, bytes_read = %ld, b = %x\n", __FUNCTION__, i, *bytes_read, b[0]); 
+
+        buf[i] = b[0];
+        i++;
+        *bytes_read = i;
+        
+    } while( b[0] != until && i < buf_max && timeout > 0 );
+
+    
+    return READ_UNTIL;
 }
