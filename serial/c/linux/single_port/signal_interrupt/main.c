@@ -56,7 +56,7 @@
 #include <cserial.h>
 
 
-#include "../command_line.h"
+#include "command_line.h"
 
 
 typedef enum signal_error_t { SIG_ACTION_ERROR = -2 } SignalError;
