@@ -1,4 +1,17 @@
-#include "serial.h"
+/****************************************************************
+* FILENAME:     serial.c
+*
+* DESCRIPTION:
+*       Serial communiciation functions for Linux
+*
+*
+* AUTHOR:   willydlw        START DATE: 12/24/17
+*
+* CHANGES:
+*
+* DATE          WHO        DETAIL
+*
+*/
 
 
 #include <stdio.h>     
@@ -10,6 +23,7 @@
 #include <sys/ioctl.h>
 
 
+#include "serial.h"
 
 
 /**
@@ -148,7 +162,8 @@ int serial_init(const char *serial_device_name, int baud_rate)
 *       type:           int            
 *       values:
 *           success     baud speed
-*           failure     -1
+*           failure     -1 when parameter baud_rate is not
+*                       a recognized speed
 *
 *      
 * NOTES:
@@ -234,7 +249,7 @@ ssize_t serial_read(int fd, uint8_t *buf, size_t count){
 *       uint8_t         until                   byte that ends read
 *       int             timeout                 stop reading after this much time (msec)
 *   Globals:
-*       none
+*       ReadState
 *
 * OUTPUTS:
 *   Parameters:
@@ -280,14 +295,40 @@ ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until,
         }
 
         // debug
-        fprintf(stderr, "%s: i = %ld, bytes_read = %ld, b = %x\n", __FUNCTION__, i, *bytes_read, b[0]); 
+        //fprintf(stderr, "%s: i = %ld, bytes_read = %ld, b = %x\n", __FUNCTION__, i, *bytes_read, b[0]); 
 
         buf[i] = b[0];
         i++;
         *bytes_read = i;
-        
+
     } while( b[0] != until && i < buf_max && timeout > 0 );
 
     
     return READ_UNTIL;
+}
+
+
+/**
+* NAME : int serial_close(int fd)
+*
+* DESCRIPTION: attempts to close file descriptor
+*
+* INPUTS: 
+*   Parameters:
+*       int             fd                      file descriptor
+*   Globals:
+*       none
+*
+* OUTPUTS:
+*   Return:
+*       type:           int           
+*       values:
+*           success     zero
+*           failure     -1 and errno is set appropriately
+*
+*
+*/
+
+int serial_close(int fd){
+    return close(fd);
 }

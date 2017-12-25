@@ -10,11 +10,19 @@ Objective: 		Create a program that reads serial data.
 
 Functionality: 	main.c program 
 					opens /dev/ttyACM0 at 9600 baud
-					infinite while loop
-						reads serial data
-						displays data read
+					loops 100 times
+						calls serial_read, 5 bytes at a time
+						counts number of times < 5 bytes read
+					write results to file
 
-					any error messages are sent to stderr
+					loops 100 times
+						calls serial_read_until endmarker
+						counts number of times read fails
+						counts number of times read times out
+
+					write results to file 
+
+					program terminates
 
 
 	   			Serial:
@@ -29,11 +37,6 @@ Functionality: 	main.c program
 
 Name:	main.c   
 
-		Sets up serial communication
-		Runs in a loop until 25 bytes (MAX_DATA_VALUES) have been read.
-		Writes data to stderr before terminating.
-
-
 Dependencies: serial.c, serial.h provide serial communication functions
 
 
@@ -45,7 +48,7 @@ Name: 	serial.c
 *******************************************************
 *  Circumstances of programs
 *******************************************************
-Date: 12/2142017
+Date: 12/24/2017
 
 	The program compiles and runs successfully. 
    
