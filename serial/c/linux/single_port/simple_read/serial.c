@@ -131,14 +131,25 @@ int serial_init(const char *serial_device_name, int baud_rate)
     // time to wait for data (tenths of seconds)
     terminalSettings.c_cc[VTIME] = 0;
 
-    // flush data from the lines
-    tcflush(serial_port_fd, TCIOFLUSH);
 
     // Load new settings
     if( tcsetattr(serial_port_fd, TCSAFLUSH, &terminalSettings) < 0){
         perror("init_serialport: Couldn't set term attributes");
         return -1;
     }
+
+    // clear data from both input/output buffers
+    /* When using a usb serial port, the USB driver does not
+       know if there is data in the internal shift register, FIFO
+       or USB subsystem. As a workaround, to ensure the data
+       is flushed, add a sleep delay here to suspend program
+       execution. This allows time for data to arrive and be
+       stored in the buffers. A call to flush will then work.
+
+       May need to experiment with sleep time.
+    */
+    usleep(10000);                                  // 10 ms
+    tcflush(serial_port_fd, TCIOFLUSH);
 
     return serial_port_fd;
 }
