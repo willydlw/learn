@@ -97,7 +97,7 @@ int main(){
 
     FD_ZERO(&readfds);
 
-    while(loopCount < 100){
+    while(loopCount < 10){
 
 
 
@@ -114,24 +114,33 @@ int main(){
         // re-initialize the timeout structure or it will eventually become zero
         // as time is deducted from the data members. timeval struct represents
         // an elapsed time
-        timeout.tv_sec = 0;
+        timeout.tv_sec = 2;
         timeout.tv_usec = 500000;
 
 
         num_fd_pending = select(max_fd, &readfds, NULL, NULL, &timeout);
-        fprintf(stderr, "select returned %d\n", num_fd_pending);
+        fprintf(stderr, "\n\n%s, select returned %d\n", __FUNCTION__, num_fd_pending);
 
         if(FD_ISSET(fd, &readfds)){
+
+            // restricting to read 5 bytes at a time, the length of a complete
+            // message. 
             bytes_read = serial_read(fd, buf, 5);
+
+            // debug
+            fprintf(stderr, "bytes_read: %ld, bytes: ", bytes_read);
+            for(int i = 0; i < bytes_read; ++i){
+                fprintf(stderr, "%#x ", buf[i] );
+            }
+            fprintf(stderr, "\n\n");
+
+            // end debug
+
             if(bytes_read > 0){
                 receive_message_state = process_received_bytes(receive_message_state, buf, bytes_read,
                                                                 &sensorData);
             }
-            fprintf(stderr, "\nbytes_read: %ld, bytes: ", bytes_read);
-            for(int i = 0; i < bytes_read; ++i){
-                fprintf(stderr, "%x ", buf[i] );
-            }
-            fprintf(stderr, "\n\n");
+            
         }
 
         if(num_fd_pending > 0){
@@ -150,6 +159,7 @@ int main(){
         }
     }
 
+    fprintf(stderr, "\n\n**** End of Run  *****\n");
 
     fprintf(stderr, "select_zero_count: %d, select_fail_count: %d\n", select_zero_count, select_fail_count);
 
