@@ -56,6 +56,12 @@ int main(){
 
     int loopCount = 0;
 
+
+    MessageState  receive_message_state = AWAITING_START_MARKER;
+
+
+    uint16_t sensorData; // eventually this will become an array for multiple sensors
+
         
     // establish serial connection
 	fd = serial_init(serial_device_path, baudrate);
@@ -115,15 +121,21 @@ int main(){
         num_fd_pending = select(max_fd, &readfds, NULL, NULL, &timeout);
         fprintf(stderr, "select returned %d\n", num_fd_pending);
 
-        if(num_fd_pending > 0){
-            if(FD_ISSET(fd, &readfds)){
-                bytes_read = serial_read(fd, buf, 5);
-                fprintf(stderr, "\nbytes_read: %ld, bytes: ", bytes_read);
-                for(int i = 0; i < bytes_read; ++i){
-                    fprintf(stderr, "%x ", buf[i] );
-                }
-                fprintf(stderr, "\n\n");
+        if(FD_ISSET(fd, &readfds)){
+            bytes_read = serial_read(fd, buf, 5);
+            if(bytes_read > 0){
+                receive_message_state = process_received_bytes(receive_message_state, buf, bytes_read,
+                                                                &sensorData);
             }
+            fprintf(stderr, "\nbytes_read: %ld, bytes: ", bytes_read);
+            for(int i = 0; i < bytes_read; ++i){
+                fprintf(stderr, "%x ", buf[i] );
+            }
+            fprintf(stderr, "\n\n");
+        }
+
+        if(num_fd_pending > 0){
+            
         }
         else if(num_fd_pending == 0){
             ++select_zero_count;
