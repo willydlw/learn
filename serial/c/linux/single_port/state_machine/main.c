@@ -5,6 +5,9 @@
 *   Establishes serial connection to /dev/ttyACM0, 9600 baud
 *       
 *
+* signal handling references:
+*   http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show
+*   http://man7.org/linux/man-pages/man2/select_tut.2.html
 *
 * AUTHOR:   willydlw        START DATE: 12/24/17
 *
@@ -32,7 +35,7 @@
 
 
 
-static volatile int exit_request = 0;
+static volatile sig_atomic_t exit_request = 0;
 
 
 /* signal handler */
@@ -54,11 +57,10 @@ static void signal_handler_term(int sig)
 
 int main(){
 
-    // signal
-    sigset_t mask;
-    sigset_t orig_mask;
+    // signal 
+    sigset_t sigmask;
+    sigset_t empty_mask;
     
-
 
     /** struct sigaction{
     void (*sa_handler)(int);
@@ -68,16 +70,47 @@ int main(){
     void (*sa_restorer)(void);
     }
     */
-    struct sigaction saterm;
-
+    struct sigaction saterm;            // SIGTERM 
     struct sigaction saint;             // SIGINT caused by ctrl + c
 
-    // register the signal handler function
+    // state variable declaration
+    CommState comm_state = SEND_READY_QUERY;
+    MessageState  receive_message_state = AWAITING_START_MARKER;
+
+    // serial
+    int fd = -1;                        // file descriptor
+    int baudrate = 9600;
+    const char* serial_device_path = "/dev/ttyACM1";
+    
+    ssize_t bytes_read;
+    uint8_t buf[16];
+
+
+    // file descriptor sets
+    fd_set readfds;
+    fd_set writefds;
+
+    struct timespec timeout;
+    int max_fd;                         // largest file descriptor value
+    int num_fd_pending;                 // number file descriptors 
+
+    // data received from the sensor
+    uint16_t sensorData; 
+
+    // response data
+    char responseData[6];
+
+    // debug variables
+    int select_zero_count = 0;
+    int select_fail_count = 0;
+    
+
+    // register the SIGTERM signal handler function
     memset(&saterm, 0, sizeof(saterm));
     saterm.sa_handler = signal_handler_term;
 
-    /*  The sigaction() system call is used to change the action taken by a
-       process on receipt of a specific signal.
+    /*  The sigaction() system call is used to change the action 
+        taken by a process on receipt of a specific signal.
     */
     if(sigaction(SIGTERM, &saterm, NULL) < 0){
         perror("sigaction saterm ");
@@ -85,6 +118,7 @@ int main(){
     }
     
 
+    // register the SIGINT signal handler function
     memset(&saint, 0, sizeof(saint));
     saint.sa_handler = signal_handler_term;
     if(sigaction(SIGINT, &saint, NULL) < 0){
@@ -92,46 +126,19 @@ int main(){
         return 1;
     }
 
+    // signal mask initialization
+    sigemptyset(&sigmask);
+    sigemptyset(&empty_mask);
 
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGINT);
+    sigaddset(&sigmask, SIGTERM);
+    sigaddset(&sigmask, SIGINT);
 
     // set as blocking so that pselect can receive event
-    if(sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0){
+    if(sigprocmask(SIG_BLOCK, &sigmask, NULL) < 0){
         perror("sigprocmask");
         return 1;
     }
 
-
-    // serial
-
-	int fd = -1;
-    int baudrate = 9600;
-
-	const char* serial_device_path = "/dev/ttyACM0";
-	
-	ssize_t bytes_read;
-	uint8_t buf[16];
-
-
-    // file selector
-    fd_set readfds;
-    struct timespec timeout;
-    int max_fd;               // largest file descriptor value
-    int num_fd_pending;
-
-
-    int select_zero_count = 0;
-    int select_fail_count = 0;
-
-    int loopCount = 0;
-
-
-    MessageState  receive_message_state = AWAITING_START_MARKER;
-
-
-    uint16_t sensorData; // eventually this will become an array for multiple sensors
 
         
     // establish serial connection
@@ -142,18 +149,15 @@ int main(){
 		return -1;
 	}
 
-   
-    //send_ready_signal(fd);
-    //wait_for_ack(fd);
-
-    
-
+    // pselect requires an argument that is 1 more than
+    // the largest file descriptor value
     max_fd = fd + 1;
-  
 
+
+    // main processing loop
     while(!exit_request){
 
-        /*  can get SIGTERM at this poin, but it will be delivered while
+        /*  can get SIGTERM at this point, but it will be delivered while
             in pselect, because SIGTERM is blocked.
         */
 
@@ -166,15 +170,15 @@ int main(){
         *   descriptors that were cleared.
         */
         FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
         FD_SET(fd, &readfds);
+        FD_SET(fd, &writefds);
 
         // re-initialize the timeout structure or it will eventually become zero
         // as time is deducted from the data members. timeval struct represents
         // an elapsed time
         timeout.tv_sec = 2;                     // seconds
         timeout.tv_nsec = 0;                    // nanoseconds
-
-
 
 
         /*
@@ -191,13 +195,13 @@ int main(){
         select returns the number of file descriptors that have a pending condition
             or -1 if there was an error
         */
-        num_fd_pending = pselect(max_fd, &readfds, NULL, NULL, &timeout, &orig_mask);
+        num_fd_pending = pselect(max_fd, &readfds, &writefds, NULL, &timeout, &empty_mask);
         fprintf(stderr, "\n\n%s, select returned %d\n", __FUNCTION__, num_fd_pending);
 
         if(num_fd_pending < 0 && errno != EINTR){   // EINTR means signal was caught
             perror("pselect");
             ++select_fail_count;
-            // should program end here? Don't think we can recover
+            // should program end here? Don't think we can recover from the possible
             /* Errors:  
                 EBADF - invalid file descriptor. Possible fd closed, or in error state
                 EINTR - signal was caught
@@ -215,43 +219,98 @@ int main(){
              continue;
         }
 
-        if(FD_ISSET(fd, &readfds)){
+        switch(comm_state){
 
-            // restricting to read 5 bytes at a time, the length of a complete
-            // message. 
-            bytes_read = serial_read(fd, buf, 5);
+            case SEND_READY_QUERY:
+                if(FD_ISSET(fd, &writefds)){
+                    if( send_ready_signal(fd, 3) ){
+                        comm_state = WAIT_FOR_ACK;
+                    }
+                    else{ // display debug message, remain in this state so message
+                          // can be sent again next time through the loop
+                        fprintf(stderr, "used max tries to send ready signal\n");
+                    }
+                }
+            break;
 
-            // debug
-            fprintf(stderr, "bytes_read: %ld, bytes: ", bytes_read);
-            for(int i = 0; i < bytes_read; ++i){
-                fprintf(stderr, "%#x ", buf[i] );
+            case WAIT_FOR_ACK:
+                if(FD_ISSET(fd, &readfds)){
+
+                    bytes_read = serial_read(fd, buf, 5);  // expecting <ACK>
+
+                    // debug
+                    fprintf(stderr, "state: WAIT_FOR_ACK, bytes_read: %ld, bytes: ", bytes_read);
+                    for(int i = 0; i < bytes_read; ++i){
+                        fprintf(stderr, "%#x ", buf[i] );
+                    }
+                    fprintf(stderr, "\n\n");
+                    // end debug
+
+                    if(bytes_read > 0){
+                        receive_message_state = process_received_ack_bytes(receive_message_state, buf, 
+                                    bytes_read, responseData);
+
+                        if(receive_message_state == MESSAGE_COMPLETE){
+                            if(strcmp(responseData, comm_state_string[1]) == 0){
+                                fprintf(stderr, "received ack\n");
+                                comm_state = WAIT_FOR_DATA;
+                            }
+                        }
+                        else if(strcmp(responseData, comm_state_string[2]) == 0){ 
+                            // received NCK 
+                            fprintf(stderr, "received nck\n");
+                            comm_state = SEND_READY_QUERY;
+                        }
+                        else{
+                            // received unexpected response
+                            fprintf( stderr, "error: %s, comm_state: WAIT_FOR_ACK, received %s\n", 
+                                        __FUNCTION__, responseData);
+                        }
+                    }
+                }
+
+                break;
+
+            case WAIT_FOR_DATA:
+                if(FD_ISSET(fd, &readfds)){
+
+                // restricting to read 5 bytes at a time, the length of a complete
+                // message. 
+                bytes_read = serial_read(fd, buf, 5);
+
+                // debug
+                fprintf(stderr, "bytes_read: %ld, bytes: ", bytes_read);
+                for(int i = 0; i < bytes_read; ++i){
+                    fprintf(stderr, "%#x ", buf[i] );
+                }
+                fprintf(stderr, "\n\n");
+
+                // end debug
+
+                if(bytes_read > 0){
+                    receive_message_state = process_received_data_bytes(receive_message_state, buf, bytes_read,
+                                                                    &sensorData);
+                }
             }
-            fprintf(stderr, "\n\n");
+            break;
 
-            // end debug
+            default:
+                // debug
+                fprintf(stderr, "error: %s, uknown comm_state %d\n", __FUNCTION__, comm_state);
+                fprintf(stderr, "program terminating\n");
+                raise(SIGTERM);
 
-            if(bytes_read > 0){
-                receive_message_state = process_received_bytes(receive_message_state, buf, bytes_read,
-                                                                &sensorData);
-            }
-            
-        }
+        } // end switch(comm_state)
 
-
-        ++loopCount;
-        if(loopCount % 5 == 0){
-            fprintf(stderr, "loopCount: %d\n", loopCount);
-            raise(SIGTERM);  // for testing SIGTERM
-        }
     }
 
+    // write debug values
     fprintf(stderr, "\n\n**** End of Run  *****\n");
 
     fprintf(stderr, "select_zero_count: %d, select_fail_count: %d\n", select_zero_count, select_fail_count);
 
 
-
-
+    // properly close serial connection
     serial_close(fd);
     fd = -1;
 

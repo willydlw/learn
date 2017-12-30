@@ -5,27 +5,76 @@
 #include "serial.h"
 #include "communication_state.h"
 
-void send_ready_signal(int fd){
 
-	const static ssize_t expected_bytes = (ssize_t)strlen(comm_state_string[SIGNAL_READY]);
+int send_ready_signal(int fd, int max_tries){
+
+	const static ssize_t expected_bytes = (const ssize_t)strlen(comm_state_string[SEND_READY_QUERY]);
 
     ssize_t bytes_written = 0;
+    int num_tries = 0;
 
-    bytes_written = serial_write(fd, comm_state_string[SIGNAL_READY], 
+    bytes_written = serial_write(fd, comm_state_string[SEND_READY_QUERY], 
     								expected_bytes) ;
+    ++num_tries;
 
     // keep sending until all bytes have been transmitted
-    while( bytes_written!= expected_bytes){
+    while( bytes_written != expected_bytes && num_tries <= max_tries){
         perror("send_ready_signal: not all bytes written ");
         fprintf(stderr, "bytes_written: %ld\n", bytes_written);
-        bytes_written = serial_write(fd, comm_state_string[SIGNAL_READY], 
+        bytes_written = serial_write(fd, comm_state_string[SEND_READY_QUERY], 
         								expected_bytes) ;
+        ++num_tries;
+    }
+
+    if(bytes_written == expected_bytes){
+    	return 1;		// message successfully transmitted
+    }
+    else{
+    	return 0;		// message not successfully transmitted
     }
 
 }
 
+MessageState process_received_ack_bytes(MessageState msgState, const uint8_t *buf, ssize_t bytes_read,
+										char *responseData)
+{
+	fprintf(stderr, "\nstart of %s, message state: %s\n", __FUNCTION__, message_state_string[msgState]);
 
-MessageState process_received_bytes(MessageState msgState, const uint8_t *buf, ssize_t bytes_read,
+	ssize_t i;
+	for(i = 0; i < bytes_read; ++i){
+		switch(msgState){
+			case AWAITING_START_MARKER:
+				if((char)buf[i] == start_marker){
+					responseData[0] = buf[i];
+					msgState = AWAITING_SENSOR_ID;
+				}
+				else { // log error
+					fprintf(stderr, "error: %s, state: AWAITING_START_MARKER, buf[%ld]: %#x\n",
+							__FUNCTION__, i, buf[i]);
+				}
+				break;
+			case AWAITING_DATA_BYTE_ONE:
+				responseData[1] = buf[1];
+				msgState = AWAITING_DATA_BYTE_TWO;
+				break;
+			case AWAITING_DATA_BYTE_TWO:
+				responseData[2] = buf[2];
+				msgState = AWAITING_DATA_BYTE_THREE;
+				break;
+			case AWAITING_DATA_BYTE_THREE:
+				responseData[3] = buf[3];
+				msgState = AWAITING_END_MARKER;
+				break;
+			case AWAITING_END_MARKER:
+				responseData[4] = buf[4];
+				return MESSAGE_COMPLETE;
+		}
+	}
+	return msgState;
+}
+
+
+MessageState process_received_data_bytes(MessageState msgState, const uint8_t *buf, ssize_t bytes_read,
 										uint16_t *sensorData)
 {
 	
