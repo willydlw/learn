@@ -35,11 +35,10 @@ boolean messageReceived;
 // have all of the same functions as the c++ string type.
 String inString;
 
+/**** sensor ****/
+Sensor sensor; 
+
 /*
-
-
-
-const uint8_t sensorId = 0x01;
 
 
 
@@ -72,13 +71,30 @@ void setup(){
   inString.reserve(MAX_RECEIVE_MESSAGE_LENGTH);
   inString = "";              // initialize to empty string
 
+  // initialize sensor fields
+  sensor.sensor_id = sensorIdList[1];
+  strcpy(sensor.sensor_name, sensorNameList[1]);
+
+
+  /* Debug
+  Serial.print("sensor id: ");
+  Serial.println(sensor.sensor_id);
+  Serial.print("sensor name: ");
+  Serial.println(sensor.sensor_name);
+  */
+
  }
 
 
 void process_received_message(){
-  
+  /*Serial.print("inString: ");
+  Serial.print(inString);
+  Serial.print(", readyQuery: ");
+  Serial.println(readyQuery);
+  */
   if(inString == readyQuery){
     if(operateState == OperationalState::INITIAL){
+      //Serial.println(ackResponse);
       Serial.write(ackResponse);
       operateState = OperationalState::WAIT;
     }
@@ -90,15 +106,19 @@ void process_received_message(){
 
 
 void loop(){
-
+/*
   if(messageReceived){
+    //Serial.println("message received");
     process_received_message();
     messageReceived = false;
   }
+  */
+
+  Serial.print("<134>");
   
  /*
   switch(operateState){
-  */  
+ 
     /* INITIAL state's purpose is to wait for ready 
      *  signal from serial connected program
      *
@@ -108,7 +128,7 @@ void loop(){
         stateChange = false;
       }
     break;
-    
+   /* 
     case SEND_COUNT:
       
       if(count < MAX_COUNT){
@@ -133,6 +153,8 @@ void loop(){
   }
 
   */
+
+  delay(1000);
 }
 
 /*
@@ -166,13 +188,16 @@ void serialEvent(){
   while(Serial.available()){
     
     char readByte = (char)Serial.read();  // read returns int
+
+    //Serial.println(readByte);
     
     switch(rxmsgState){
       
       case ReceiveMessageState::AWAIT_RECEIPT:
         if(readByte == startMarker){ // no reason to save readByte
           inString = "";            // clear string
-          inString = startMarker;  
+          rxmsgState = ReceiveMessageState::FORM_STRING;
+          inString += startMarker;
           rxmsgState = ReceiveMessageState::FORM_STRING;
         }
         break;
