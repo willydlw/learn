@@ -34,7 +34,6 @@
 
 
 
-
 static volatile sig_atomic_t exit_request = 0;
 
 
@@ -80,7 +79,7 @@ int main(){
     // serial
     int fd = -1;                        // file descriptor
     int baudrate = 9600;
-    const char* serial_device_path = "/dev/ttyACM1";
+    const char* serial_device_path = "/dev/ttyACM0";
     
     ssize_t bytes_read;
     uint8_t buf[16];
@@ -88,7 +87,7 @@ int main(){
 
     // file descriptor sets
     fd_set readfds;
-    fd_set writefds;
+   
 
     struct timespec timeout;
     int max_fd;                         // largest file descriptor value
@@ -104,6 +103,34 @@ int main(){
     int select_zero_count = 0;
     int select_fail_count = 0;
     
+
+    
+
+
+        
+    // initialize serial port connection
+	fd = serial_init(serial_device_path, baudrate);
+
+	if(fd == -1){
+		puts("serial port did not open");
+		return -1;
+	}
+
+    // pselect requires an argument that is 1 more than
+    // the largest file descriptor value
+    max_fd = fd + 1;
+
+
+    // confirm connection with other device
+    if( confirm_connection(fd, max_fd) != SUCCESS){
+        fprintf(stderr, "confirm_connection failed, program terminating\n");
+        close(fd);
+        return CONNECTION_ERROR;
+    }
+
+    // wait for acknowledgement
+
+
 
     // register the SIGTERM signal handler function
     memset(&saterm, 0, sizeof(saterm));
@@ -140,20 +167,6 @@ int main(){
     }
 
 
-        
-    // establish serial connection
-	fd = serial_init(serial_device_path, baudrate);
-
-	if(fd == -1){
-		puts("serial port did not open");
-		return -1;
-	}
-
-    // pselect requires an argument that is 1 more than
-    // the largest file descriptor value
-    max_fd = fd + 1;
-
-
     // main processing loop
     while(!exit_request){
 
@@ -170,9 +183,8 @@ int main(){
         *   descriptors that were cleared.
         */
         FD_ZERO(&readfds);
-        FD_ZERO(&writefds);
         FD_SET(fd, &readfds);
-        FD_SET(fd, &writefds);
+        
 
         // re-initialize the timeout structure or it will eventually become zero
         // as time is deducted from the data members. timeval struct represents
@@ -195,8 +207,8 @@ int main(){
         select returns the number of file descriptors that have a pending condition
             or -1 if there was an error
         */
-        num_fd_pending = pselect(max_fd, &readfds, &writefds, NULL, &timeout, &empty_mask);
-        fprintf(stderr, "\n\n%s, select returned %d\n", __FUNCTION__, num_fd_pending);
+        num_fd_pending = pselect(max_fd, &readfds, NULL, NULL, &timeout, &empty_mask);
+        fprintf(stderr, "\n%s, select returned %d\n", __FUNCTION__, num_fd_pending);
 
         if(num_fd_pending < 0 && errno != EINTR){   // EINTR means signal was caught
             perror("pselect");
@@ -219,11 +231,18 @@ int main(){
              continue;
         }
 
+        fprintf(stderr, "right before switch(comm_state), comm_state: %d, %s\n", 
+                comm_state, debug_comm_state_string[comm_state]);
+
         switch(comm_state){
 
             case SEND_READY_QUERY:
+            /*
+                fprintf(stderr, "case SEND_READY_QUERY, "); 
                 if(FD_ISSET(fd, &writefds)){
                     if( send_ready_signal(fd, 3) ){
+                        fprintf(stderr, "send_ready_signal returned value > 0\n");
+                        getchar();
                         comm_state = WAIT_FOR_ACK;
                     }
                     else{ // display debug message, remain in this state so message
@@ -232,8 +251,10 @@ int main(){
                     }
                 }
             break;
+            */
 
             case WAIT_FOR_ACK:
+                fprintf(stderr, " case WAIT_FOR_ACK, ");
                 if(FD_ISSET(fd, &readfds)){
 
                     bytes_read = serial_read(fd, buf, 5);  // expecting <ACK>
@@ -267,6 +288,9 @@ int main(){
                                         __FUNCTION__, responseData);
                         }
                     }
+                }
+                else {   // for debug only
+                    fprintf(stderr, "if(FD_ISSET(fd, &readfds)) not true\n");
                 }
 
                 break;
