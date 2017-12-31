@@ -73,7 +73,6 @@ int main(){
     struct sigaction saint;             // SIGINT caused by ctrl + c
 
     // state variable declaration
-    CommState comm_state = SEND_READY_QUERY;
     MessageState  receive_message_state = AWAITING_START_MARKER;
 
     // serial
@@ -96,9 +95,7 @@ int main(){
     // data received from the sensor
     uint16_t sensorData; 
 
-    // response data
-    char responseData[6];
-
+    
     // debug variables
     int select_zero_count = 0;
     int select_fail_count = 0;
@@ -231,102 +228,30 @@ int main(){
              continue;
         }
 
-        fprintf(stderr, "right before switch(comm_state), comm_state: %d, %s\n", 
-                comm_state, debug_comm_state_string[comm_state]);
+       
+        if(FD_ISSET(fd, &readfds)){
 
-        switch(comm_state){
+            // restricting to read 5 bytes at a time, the length of a complete
+            // message. 
+            bytes_read = serial_read(fd, buf, 5);
 
-            case SEND_READY_QUERY:
-            /*
-                fprintf(stderr, "case SEND_READY_QUERY, "); 
-                if(FD_ISSET(fd, &writefds)){
-                    if( send_ready_signal(fd, 3) ){
-                        fprintf(stderr, "send_ready_signal returned value > 0\n");
-                        getchar();
-                        comm_state = WAIT_FOR_ACK;
-                    }
-                    else{ // display debug message, remain in this state so message
-                          // can be sent again next time through the loop
-                        fprintf(stderr, "used max tries to send ready signal\n");
-                    }
-                }
-            break;
-            */
-
-            case WAIT_FOR_ACK:
-                fprintf(stderr, " case WAIT_FOR_ACK, ");
-                if(FD_ISSET(fd, &readfds)){
-
-                    bytes_read = serial_read(fd, buf, 5);  // expecting <ACK>
-
-                    // debug
-                    fprintf(stderr, "state: WAIT_FOR_ACK, bytes_read: %ld, bytes: ", bytes_read);
-                    for(int i = 0; i < bytes_read; ++i){
-                        fprintf(stderr, "%#x ", buf[i] );
-                    }
-                    fprintf(stderr, "\n\n");
-                    // end debug
-
-                    if(bytes_read > 0){
-                        receive_message_state = process_received_ack_bytes(receive_message_state, buf, 
-                                    bytes_read, responseData);
-
-                        if(receive_message_state == MESSAGE_COMPLETE){
-                            if(strcmp(responseData, comm_state_string[1]) == 0){
-                                fprintf(stderr, "received ack\n");
-                                comm_state = WAIT_FOR_DATA;
-                            }
-                        }
-                        else if(strcmp(responseData, comm_state_string[2]) == 0){ 
-                            // received NCK 
-                            fprintf(stderr, "received nck\n");
-                            comm_state = SEND_READY_QUERY;
-                        }
-                        else{
-                            // received unexpected response
-                            fprintf( stderr, "error: %s, comm_state: WAIT_FOR_ACK, received %s\n", 
-                                        __FUNCTION__, responseData);
-                        }
-                    }
-                }
-                else {   // for debug only
-                    fprintf(stderr, "if(FD_ISSET(fd, &readfds)) not true\n");
-                }
-
-                break;
-
-            case WAIT_FOR_DATA:
-                if(FD_ISSET(fd, &readfds)){
-
-                // restricting to read 5 bytes at a time, the length of a complete
-                // message. 
-                bytes_read = serial_read(fd, buf, 5);
-
-                // debug
-                fprintf(stderr, "bytes_read: %ld, bytes: ", bytes_read);
-                for(int i = 0; i < bytes_read; ++i){
-                    fprintf(stderr, "%#x ", buf[i] );
-                }
-                fprintf(stderr, "\n\n");
-
-                // end debug
-
-                if(bytes_read > 0){
-                    receive_message_state = process_received_data_bytes(receive_message_state, buf, bytes_read,
-                                                                    &sensorData);
-                }
+            // debug
+            fprintf(stderr, "bytes_read: %ld, bytes: ", bytes_read);
+            for(int i = 0; i < bytes_read; ++i){
+                fprintf(stderr, "%#x ", buf[i] );
             }
-            break;
+            fprintf(stderr, "\n\n");
 
-            default:
-                // debug
-                fprintf(stderr, "error: %s, uknown comm_state %d\n", __FUNCTION__, comm_state);
-                fprintf(stderr, "program terminating\n");
-                raise(SIGTERM);
+            // end debug
 
-        } // end switch(comm_state)
+            if(bytes_read > 0){
+                receive_message_state = process_received_data_bytes(receive_message_state, buf, bytes_read,
+                                                                &sensorData);
+            }
+        }
+            
 
-    }
+    } // end while
 
     // write debug values
     fprintf(stderr, "\n\n**** End of Run  *****\n");
