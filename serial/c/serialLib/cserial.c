@@ -92,7 +92,7 @@ int initialize_serial(const char *serial_device_name, int baud_rate)
     newtio.c_cc[VTIME] = 0;
 
     // Load new settings
-    if( tcsetattr(serial_port_fd, TCSAFLUSH, &terminalSettings) < 0){
+    if( tcsetattr(serial_port_fd, TCSAFLUSH, &newtio) < 0){
         perror("init_serialport: Couldn't set term attributes");
         return SERIAL_OPEN_ERROR;
     }
