@@ -38,8 +38,12 @@ String inString;
 /**** sensor ****/
 Sensor sensor; 
 
-/*
+/**** timing ****/
+const unsigned long WAIT_READY_DELAY = 3000;    // milliseconds
+const unsigned long WAIT_STATE_DELAY = 1000;    // milliseconds
+const unsigned long SENSE_DELAY = 1000;         // milliseconds
 
+unsigned long startTime;
 
 
 // index 0 start marker
@@ -49,9 +53,11 @@ Sensor sensor;
 byte sendDataBuffer[5];  
 
 
-*/
 
-
+/*** for this example, the sensor data will be a 
+ *   sequential count
+ */
+unsigned int count;
 
 
 
@@ -76,12 +82,23 @@ void setup(){
   strcpy(sensor.sensor_name, sensorNameList[1]);
 
 
+  // for this example, this is a quick hack to form
+  // the sensor data message
+  sendDataBuffer[0] = startMarker;
+  sendDataBuffer[1] = sensor.sensor_id;
+  sendDataBuffer[4] = endMarker;
+
+  count = 0;
+
   /* Debug
   Serial.print("sensor id: ");
   Serial.println(sensor.sensor_id);
   Serial.print("sensor name: ");
   Serial.println(sensor.sensor_name);
   */
+  delay(100);
+  Serial.write(helloMessage);
+  startTime = millis();
 
  }
 
@@ -92,9 +109,9 @@ void process_received_message(){
   Serial.print(", readyQuery: ");
   Serial.println(readyQuery);
   */
-  if(inString == readyQuery){
+  
+  if(inString.compareTo(readyCommand) == 0){
     if(operateState == OperationalState::INITIAL){
-      //Serial.println(ackResponse);
       Serial.write(ackResponse);
       operateState = OperationalState::WAIT;
     }
@@ -102,59 +119,72 @@ void process_received_message(){
       Serial.write(nackResponse);
     }
   }
+  else if(inString.compareTo(resetCommand) == 0){
+    operateState == OperationalState::RESET;
+  }
+  else if(inString.compareTo(stopCommand) == 0){
+    operateState == OperationalState::STOP;
+  }
+
+  startTime = millis();
 }
 
 
 void loop(){
-/*
+
   if(messageReceived){
     //Serial.println("message received");
     process_received_message();
     messageReceived = false;
   }
-  */
-
-  Serial.print("<134>");
-  
- /*
+    
+ 
   switch(operateState){
  
     /* INITIAL state's purpose is to wait for ready 
      *  signal from serial connected program
-     *
+     */
     case OperationalState::INITIAL:
-      if(stateChange){
-        state = WAIT_FOR_GO;
-        stateChange = false;
+      // stays here until ready query is received
+      // and ack response is sent
+      if( (millis() - startTime) > WAIT_READY_DELAY){
+        Serial.write(helloMessage);
+        startTime = millis();
       }
-    break;
-   /* 
-    case SEND_COUNT:
       
-      if(count < MAX_COUNT){
-        Serial.write(count);
+    break;
+    
+    case OperationalState::WAIT:
+      if( (millis() - startTime) > WAIT_STATE_DELAY){
+        operateState = OperationalState::SENSE;
+        startTime = millis();
+      } 
+    break;
+    
+    case OperationalState::SENSE:
+      if( (millis() - startTime) > SENSE_DELAY){
+        // simulate sensor data with a count
+        sendDataBuffer[2] = (byte)(count >> 8);  // msb
+        sendDataBuffer[3] = (byte)count;         // lsb
+    
+        Serial.write(sendDataBuffer, 5);
+      
         count++;
-        delay(100);            // transmit 10 bytes per second
-      }
-      else{  // count >= MAX_COUNT
-        stateChange = true;
-        nextState = END;
-      }
+        startTime = millis();
+      }    
     break;
-    
-    case RESET:
+   
+    case OperationalState::RESET:
       count = 0;
-      state = INITIAL;
+      operateState = OperationalState::INITIAL;
+      startTime = millis();
     break;
-    
-    case END:
+
+    case OperationalState::STOP:
       Serial.end();
-    break;  
+    break;
   }
-
-  */
-
-  delay(1000);
+   
 }
 
 /*
@@ -225,7 +255,7 @@ void serialEvent(){
         break;
         
         default:
-          // should not reach this case, clear input string
+          // should not reach this case
           // reset to await start state, we lose any information
           // already read
           // inString will be cleared in AWAIT_START
