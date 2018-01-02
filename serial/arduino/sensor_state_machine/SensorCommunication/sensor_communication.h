@@ -4,17 +4,28 @@
 const uint8_t MAX_RECEIVE_MESSAGE_LENGTH = 16;
 
 // request messages
-const char* readyQuery = "<RDY>";
+const char* readyCommand = "<RDY>";
+const char* resetCommand = "<RST>";
+const char* stopCommand = "<STP>";
 
 // response messages
 const char* ackResponse = "<ACK>";
 const char* nackResponse = "<NCK>";
 
 
+/** When another program opens the serial
+    connection, the Arduino program resets.
+
+    This message is broadcast to confirm
+    the connection has been made.
+**/
+const char* helloMessage = "<HLO>";
+
+
 
 // message characteristics
-const uint8_t startMarker = '<';
-const uint8_t endMarker = '>';
+const char startMarker = '<';
+const char endMarker = '>';
 
 struct SensorMessage{
 	uint8_t start;
