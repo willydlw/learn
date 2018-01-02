@@ -4,7 +4,6 @@
 #include <sys/select.h>
 #include <sys/time.h>
 
-
 #include "serial.h"
 #include "communication_state.h"
 
@@ -15,10 +14,48 @@ const char* message_state_string[] =
 		  "AWAITING_DATA_BYTE_TWO", "AWAITING_DATA_BYTE_THREE", 
 		  "AWAITING_END_MARKER", "MESSAGE_COMPLETE"};
 
-const char* comm_state_string[] = {"<RDY>", "<ACK>", "<NCK>"};
+
+/** Note: The messages and commands are in common with the 
+          paired Arduino program. These would be easier to 
+          maintain if they were in a common file. 
+
+          Currently, using the Arduino IDE requires that the
+          file be in Arduino/libraries. As these are testing
+          files, and not yet production, the data is maintained
+          here and in sensor_coummunication.h
+*/
+
+// request messages
+const char* readyCommand = "<RDY>";
+const char* resetCommand = "<RST>";
+const char* stopCommand = "<STP>";
+
+// response messages
+const char* ackResponse = "<ACK>";
+const char* nackResponse = "<NCK>";
+
+
+/** When another program opens the serial
+    connection, the Arduino program resets.
+
+    This message is broadcast to confirm
+    the connection has been made.
+**/
+const char* helloMessage = "<HLO>";
+
+
+static const uint8_t start_marker = '<';
+static const uint8_t end_marker = '>';
+
+
+// end of data in common with Arduino
+
+static const uint8_t sensor_id[1] = {'1'};
+
 
 const char* debug_comm_state_string[] = 
-	{"UNUSED", "SEND_READY_QUERY", "WAIT_FOR_ACK", "WAIT_FOR_DATA"};
+	{	"UNUSED", "WAIT_FOR_CONNECTION", "SEND_READY_SIGNAL", "READ_SENSOR", 
+		"SEND_RESET",  "SEND_STOP"};
 
 
 ErrorCondition confirm_connection(int fd, int max_fd){
@@ -96,7 +133,7 @@ ErrorCondition confirm_connection(int fd, int max_fd){
 
 	fprintf(stderr, "total number times keep_trying loop executed: %d\n", count);
 	fprintf(stderr, "exiting %s\n", __FUNCTION__);
-	getchar();
+	
 
 	// returning 0. If function returns above due to an error, all errno values are
 	// greater than 0
@@ -147,12 +184,14 @@ ErrorCondition wait_for_acknowledgement(int fd, int max_fd){
 	int num_fd_pending;
 	struct timeval timeout;
 
-	MessageState receive_message_state;
+	MessageState receive_message_state = AWAITING_START_MARKER;
 
 	// response data
     char responseData[6];
 
 	while(keepTrying){
+
+		fprintf(stderr, "wait_for_acknowledgement, start of loop\n");
 
 		FD_ZERO(&readfds);
         FD_SET(fd, &readfds);
@@ -252,10 +291,12 @@ ErrorCondition wait_for_acknowledgement(int fd, int max_fd){
             		return SERIAL_READ_ERROR;
             	}
             }
+            
             else {   // for debug only
                 fprintf(stderr, "if(FD_ISSET(fd, &readfds)) not true for %d\n", fd);
             }
-        }
+            
+        } 
 
         fprintf(stderr, "loop count: %d\n", count);
 
@@ -274,15 +315,20 @@ ErrorCondition wait_for_acknowledgement(int fd, int max_fd){
 MessageState process_received_ack_bytes(MessageState msgState, const uint8_t *buf, ssize_t bytes_read,
 										char *responseData)
 {
+	
 	fprintf(stderr, "\nstart of %s, message state: %s\n", __FUNCTION__, message_state_string[msgState]);
 
 	ssize_t i;
+	
 	for(i = 0; i < bytes_read; ++i){
+		fprintf(stderr, "i: %ld, message state: %s, buf[i]: %#x, (char)buf[i]: %c\n", 
+							i, message_state_string[msgState], buf[i], (char)buf[i]);
+
 		switch(msgState){
 			case AWAITING_START_MARKER:
 				if((char)buf[i] == start_marker){
 					responseData[0] = buf[i];
-					msgState = AWAITING_SENSOR_ID;
+					msgState = AWAITING_DATA_BYTE_ONE;
 				}
 				else { // log error
 					fprintf(stderr, "error: %s, state: AWAITING_START_MARKER, buf[%ld]: %#x\n",
@@ -290,19 +336,20 @@ MessageState process_received_ack_bytes(MessageState msgState, const uint8_t *bu
 				}
 				break;
 			case AWAITING_DATA_BYTE_ONE:
-				responseData[1] = buf[1];
+				responseData[1] = buf[i];
 				msgState = AWAITING_DATA_BYTE_TWO;
 				break;
 			case AWAITING_DATA_BYTE_TWO:
-				responseData[2] = buf[2];
+				responseData[2] = buf[i];
 				msgState = AWAITING_DATA_BYTE_THREE;
 				break;
 			case AWAITING_DATA_BYTE_THREE:
-				responseData[3] = buf[3];
+				responseData[3] = buf[i];
 				msgState = AWAITING_END_MARKER;
 				break;
 			case AWAITING_END_MARKER:
-				responseData[4] = buf[4];
+				responseData[4] = buf[i];
+				responseData[5] = '\0';     // null terminate the string
 				return MESSAGE_COMPLETE;
 			default:
 				fprintf(stderr, "error: %s, reached default case, msgState: %#x,"

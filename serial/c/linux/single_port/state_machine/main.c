@@ -90,7 +90,7 @@ int main(){
 
     struct timespec timeout;
     int max_fd;                         // largest file descriptor value
-    int num_fd_pending;                 // number file descriptors 
+    int selectReturnValue;              // number file descriptors pending
 
     // data received from the sensor
     uint16_t sensorData; 
@@ -101,9 +101,11 @@ int main(){
     int select_fail_count = 0;
     
 
+    // 
+    int writeState = 0;
+    int readState = 1;
+
     
-
-
         
     // initialize serial port connection
 	fd = serial_init(serial_device_path, baudrate);
@@ -116,18 +118,29 @@ int main(){
     // pselect requires an argument that is 1 more than
     // the largest file descriptor value
     max_fd = fd + 1;
-
-
+    
+    
     // confirm connection with other device
     if( confirm_connection(fd, max_fd) != SUCCESS){
         fprintf(stderr, "confirm_connection failed, program terminating\n");
         close(fd);
         return CONNECTION_ERROR;
     }
+    
 
+    fprintf(stderr, "main, confirm_connection success\n");
+    
+    
     // wait for acknowledgement
+    if( wait_for_acknowledgement(fd, max_fd) != SUCCESS){
+        fprintf(stderr, "wait_for_acknowledgement failed, program terminating");
+        close(fd);
+        return ACKNOWLEDGEMENT_ERROR;
+    }
+    
+    getchar();
 
-
+     
 
     // register the SIGTERM signal handler function
     memset(&saterm, 0, sizeof(saterm));
@@ -180,7 +193,15 @@ int main(){
         *   descriptors that were cleared.
         */
         FD_ZERO(&readfds);
-        FD_SET(fd, &readfds);
+        
+        if(readState){
+            FD_SET(fd, &readfds);
+        }
+
+        if(writeState){
+            FD_SET(fd, &writefds);
+        }
+        
         
 
         // re-initialize the timeout structure or it will eventually become zero
@@ -204,8 +225,8 @@ int main(){
         select returns the number of file descriptors that have a pending condition
             or -1 if there was an error
         */
-        num_fd_pending = pselect(max_fd, &readfds, NULL, NULL, &timeout, &empty_mask);
-        fprintf(stderr, "\n%s, select returned %d\n", __FUNCTION__, num_fd_pending);
+        selectReturnValue = pselect(max_fd, &readfds, NULL, NULL, &timeout, &empty_mask);
+        fprintf(stderr, "\n%s, select returned %d\n", __FUNCTION__, selectReturnValue);
 
         if(num_fd_pending < 0 && errno != EINTR){   // EINTR means signal was caught
             perror("pselect");
@@ -230,7 +251,6 @@ int main(){
 
        
         if(FD_ISSET(fd, &readfds)){
-
             // restricting to read 5 bytes at a time, the length of a complete
             // message. 
             bytes_read = serial_read(fd, buf, 5);

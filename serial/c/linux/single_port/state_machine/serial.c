@@ -68,7 +68,7 @@ int serial_init(const char *serial_device_name, int baud_rate)
     struct termios terminalSettings;
 
     // Open the serial port nonblocking (read returns immediately)
-    serial_port_fd = open(serial_device_name, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    serial_port_fd = open(serial_device_name, O_RDWR | O_NOCTTY | O_NDELAY);
     if(serial_port_fd < 0)             // open returns -1 on error
     {
         fprintf(stderr, "error: %s, serial port not open, errno -%s\n", 
@@ -99,6 +99,65 @@ int serial_init(const char *serial_device_name, int baud_rate)
     }
 
 
+    // input flags - turn off input processing
+
+    // convert break to null byte, no CR to NL translation,
+    // no NL to CR translation, don't mark parity errors or breaks
+    // no input parity check, don't strip high bit off,
+    // no XON/XOFF software flow control
+    //
+    terminalSettings.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
+                         INLCR | PARMRK | INPCK | ISTRIP | IXON);
+
+
+    // prior version, remove if above input settings work
+    /** turn off software flow control (outgoing, incoming)
+        allow any character to start flow again
+    terminalSettings.c_iflag &= ~(IXON | IXOFF | IXANY);    
+    */
+
+
+    //
+    // Output flags - Turn off output processing
+    //
+    // no CR to NL translation, no NL to CR-NL translation,
+    // no NL to CR translation, no column 0 CR suppression,
+    // no Ctrl-D suppression, no fill characters, no case mapping,
+    // no local output processing
+    //
+    // config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
+    //                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
+    terminalSettings.c_oflag = 0;
+
+    // prior version, remove if above output settings work
+    // configure for raw output
+    // terminalSettings.c_oflag &= ~OPOST; 
+
+
+     //
+     // No line processing
+     //
+     // echo off, echo newline off, canonical mode off, 
+     // extended input processing off, signal chars off
+     //
+     terminalSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+
+    /* prior version, remove if above line settings work
+    // configure for raw input
+    terminalSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); 
+    */
+
+     //
+     // Turn off character processing
+     //
+     // clear current char size mask, no parity checking,
+     // no output processing, force 8 bit input
+     //
+     terminalSettings.c_cflag &= ~(CSIZE | PARENB);
+     terminalSettings.c_cflag |= CS8;
+
+
+    /* prior version, remove if above output settings work
     // set control flags
     terminalSettings.c_cflag &= ~PARENB;            // no parity
     terminalSettings.c_cflag &= ~CSTOPB;            // 1 stop bit
@@ -106,24 +165,19 @@ int serial_init(const char *serial_device_name, int baud_rate)
     terminalSettings.c_cflag |= CS8;                // data size 8 bit
   
     terminalSettings.c_cflag &= ~CRTSCTS;           // no flow control
-
+    */
     /* CREAD - enable receiver
        CLOCAL should be enabled to ensure that your program does not become 
        the 'owner' of the port subject to sporatic job control and hangup signals
     */
-    terminalSettings.c_cflag |= CREAD | CLOCAL;     // enable receiver, ignore ctrl lines
+    //terminalSettings.c_cflag |= CREAD | CLOCAL;     // enable receiver, ignore ctrl lines
 
-    /** turn off software flow control (outgoing, incoming)
-        allow any character to start flow again
-    */
-    terminalSettings.c_iflag &= ~(IXON | IXOFF | IXANY);    
+    
 
 
-    // configure for raw input
-    terminalSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); 
+   
 
-    // configure for raw output
-    terminalSettings.c_oflag &= ~OPOST; 
+    
 
     // VMIN sets minimum characters to read
     terminalSettings.c_cc[VMIN]  = 0;
