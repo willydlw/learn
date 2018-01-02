@@ -37,6 +37,9 @@
 static volatile sig_atomic_t exit_request = 0;
 
 
+
+
+
 /* signal handler */
 static void signal_handler_term(int sig)
 {
@@ -86,27 +89,37 @@ int main(){
 
     // file descriptor sets
     fd_set readfds;
+    fd_set writefds;
    
 
     struct timespec timeout;
-    int max_fd;                         // largest file descriptor value
-    int selectReturnValue;              // number file descriptors pending
+    int max_fd;                     // largest file descriptor value
+    int selectrfds;                 // number read file descriptors pending
+    int selectwfds;                 // number write file descriptors pending
+
+    
+    // received message data
+    uint8_t responseData[MESSAGE_LENGTH_BYTES + 1];  // plus 1 for null terminator
 
     // data received from the sensor
+    uint8_t sensorId = 1;
     uint16_t sensorData; 
 
     
-    // debug variables
-    int select_zero_count = 0;
-    int select_fail_count = 0;
-    
-
     // 
     int writeState = 0;
     int readState = 1;
 
-    
-        
+    CommState commState = WAIT_FOR_CONNECTION;
+
+    ErrorCondition errorCondition;
+
+    // debug variables 
+    int read_select_zero_count = 0;
+    int write_select_zero_count = 0;
+
+
+            
     // initialize serial port connection
 	fd = serial_init(serial_device_path, baudrate);
 
@@ -118,29 +131,7 @@ int main(){
     // pselect requires an argument that is 1 more than
     // the largest file descriptor value
     max_fd = fd + 1;
-    
-    
-    // confirm connection with other device
-    if( confirm_connection(fd, max_fd) != SUCCESS){
-        fprintf(stderr, "confirm_connection failed, program terminating\n");
-        close(fd);
-        return CONNECTION_ERROR;
-    }
-    
-
-    fprintf(stderr, "main, confirm_connection success\n");
-    
-    
-    // wait for acknowledgement
-    if( wait_for_acknowledgement(fd, max_fd) != SUCCESS){
-        fprintf(stderr, "wait_for_acknowledgement failed, program terminating");
-        close(fd);
-        return ACKNOWLEDGEMENT_ERROR;
-    }
-    
-    getchar();
-
-     
+         
 
     // register the SIGTERM signal handler function
     memset(&saterm, 0, sizeof(saterm));
@@ -184,33 +175,6 @@ int main(){
             in pselect, because SIGTERM is blocked.
         */
 
-
-        /** must call FD_ZERO and FD_SET every time through loop.
-        *
-        *   When select returns, it has updated the sets to show which file
-        *   descriptors are ready for read/write/exception. All other flags
-        *   have been cleared. Must call FD_SET to re-enable the file 
-        *   descriptors that were cleared.
-        */
-        FD_ZERO(&readfds);
-        
-        if(readState){
-            FD_SET(fd, &readfds);
-        }
-
-        if(writeState){
-            FD_SET(fd, &writefds);
-        }
-        
-        
-
-        // re-initialize the timeout structure or it will eventually become zero
-        // as time is deducted from the data members. timeval struct represents
-        // an elapsed time
-        timeout.tv_sec = 2;                     // seconds
-        timeout.tv_nsec = 0;                    // nanoseconds
-
-
         /*
         int pselect(int nfds, fd_set *readfds, fd_set *writefds,
             fd_set *exceptfds, const struct timespec *timeout,
@@ -222,61 +186,170 @@ int main(){
                 timeout argument specifies maximum time select should wait 
                 before returning. Will return sooner if fd is available
 
-        select returns the number of file descriptors that have a pending condition
+            pselect returns the number of file descriptors that have a pending condition
             or -1 if there was an error
         */
-        selectReturnValue = pselect(max_fd, &readfds, NULL, NULL, &timeout, &empty_mask);
-        fprintf(stderr, "\n%s, select returned %d\n", __FUNCTION__, selectReturnValue);
+        
 
-        if(num_fd_pending < 0 && errno != EINTR){   // EINTR means signal was caught
-            perror("pselect");
-            ++select_fail_count;
-            // should program end here? Don't think we can recover from the possible
-            /* Errors:  
-                EBADF - invalid file descriptor. Possible fd closed, or in error state
-                EINTR - signal was caught
-                EINVAL - nfds is negative or timeout value is invalid
-                ENOMEM - unable to allocate memory for internal tables.
-            */
-            break;
-        }
-        else if(exit_request){
-            fprintf(stderr, "received exit request\n");
-            break;
-        }
-        else if(num_fd_pending == 0){
-             ++select_zero_count;
-             continue;
-        }
+        /** must call FD_ZERO and FD_SET every time through loop.
+        *
+        *   When select returns, it has updated the sets to show which file
+        *   descriptors are ready for read/write/exception. All other flags
+        *   have been cleared. Must call FD_SET to re-enable the file 
+        *   descriptors that were cleared.
+        */
+        
+        if(readState){
+            FD_ZERO(&readfds);
+            FD_SET(fd, &readfds);
+            // re-initialize the timeout structure or it will eventually become zero
+            // as time is deducted from the data members. timeval struct represents
+            // an elapsed time
+            timeout.tv_sec = 2;                     // seconds
+            timeout.tv_nsec = 0;                    // nanoseconds
 
-       
-        if(FD_ISSET(fd, &readfds)){
-            // restricting to read 5 bytes at a time, the length of a complete
-            // message. 
-            bytes_read = serial_read(fd, buf, 5);
+            selectrfds = pselect(max_fd, &readfds, NULL, NULL, &timeout, &empty_mask);
+            fprintf(stderr, "read pending, selectrfds: %d\n", selectrfds);
 
-            // debug
-            fprintf(stderr, "bytes_read: %ld, bytes: ", bytes_read);
-            for(int i = 0; i < bytes_read; ++i){
-                fprintf(stderr, "%#x ", buf[i] );
+            if(exit_request){
+                fprintf(stderr, "received exit request\n");
+                break;
             }
-            fprintf(stderr, "\n\n");
 
-            // end debug
+            errorCondition = check_select_return_value(selectrfds, errno, &read_select_zero_count);
 
-            if(bytes_read > 0){
-                receive_message_state = process_received_data_bytes(receive_message_state, buf, bytes_read,
-                                                                &sensorData);
+            if(errorCondition == SUCCESS){
+                bytes_read = readMessage(fd, readfds, buf);
+
+                if(bytes_read > 0){
+
+                    ssize_t bytes_not_processed;
+                    bytes_not_processed = 
+                        process_received_message_bytes(&receive_message_state, 
+                                                        buf, bytes_read, responseData);
+
+                    if(receive_message_state == MESSAGE_COMPLETE){
+
+                        // reset message state for next read
+                        receive_message_state = AWAITING_START_MARKER;
+
+                        switch(commState){
+                            case WAIT_FOR_CONNECTION:
+                                // received hello?
+                                if(strcmp((const char*)responseData, helloMessage) == 0){
+                                    commState = SEND_READY_SIGNAL;
+                                    writeState = 1;
+                                    readState = 0;
+                                }
+                                else{
+                                    fprintf(stderr, "warning: function: %s, line: %d, "
+                                            "commState: %s, expected: %s, received: %s\n",
+                                            __FUNCTION__, __LINE__, 
+                                            debug_comm_state_string[commState],
+                                            helloMessage, responseData);
+                                }
+                            break;
+
+                            case READ_SENSOR:
+                                // response data should contain sensor data
+                                // verify sensor id
+                                if(responseData[1] == sensorId){
+                                     // extract sensor data
+                                    // responseData[2] is msb
+                                    sensorData = (uint16_t)( 
+                                        (((uint16_t)responseData[2]) << 8U) |
+                                        ((uint16_t)responseData[1] & 0xFF) );
+                                    
+                                // here is where code needs to be added to process 
+                                // the new sensor data
+                                fprintf(stderr, "sensorData: %d\n", sensorData);
+                                }
+                                else{
+                                    fprintf(stderr, "error, function: %s, line: %d, "
+                                        "sensor id, expected: %d, received: %d\n", 
+                                        __FUNCTION__, __LINE__, 
+                                        sensorId, responseData[1]);
+                                    fprintf(stderr, "not processing responseData: %s",
+                                        responseData);
+                                }
+                               
+                            
+                            break;
+
+                            default:
+                                fprintf(stderr, "warning: function: %s, line: %d, "
+                                        "entered default case, commState: %d, "
+                                        "not processing responseData, [0] %#x,"
+                                        "[1] %#x, [2] %#x, [3] %#x, [4] %#x\n",
+                                        __FUNCTION__, __LINE__, commState,
+                                        responseData[0], responseData[1],
+                                        responseData[2], responseData[3], responseData[4]);
+                                        
+                        } // end switch
+                    } // end if message complete
+
+                    // bytes_not_processed should be less than a whole message
+                    // since read message restricts to reading no more than a full
+                    // message at one time
+                    if(bytes_not_processed > 0 ){ 
+                        // function should return zero
+                        bytes_not_processed = 
+                            process_received_message_bytes(&receive_message_state, 
+                                                            buf, bytes_read, responseData);
+                    }
+                } // end if bytes_read > 0
+            }
+            else if(errorCondition == SELECT_FAILURE){
+                fprintf(stderr, "breaking out of while(exit_request) loop\n");
+                break;
+            }
+            else if(errorCondition == SELECT_ZERO_COUNT){
+                fprintf(stderr, "read file descriptor not available, select returned zero\n");
+            }
+            else{
+                fprintf(stderr, "error: check_select_return_value returned %d, "
+                        "unhandled value\n", errorCondition);
+            }
+        } // end if read state
+
+        
+        if(writeState){
+            FD_ZERO(&writefds);
+            FD_SET(fd, &writefds);
+            timeout.tv_sec = 2;                     // seconds
+            timeout.tv_nsec = 0;                    // nanoseconds
+
+            selectwfds = pselect(max_fd, NULL, &writefds, NULL, &timeout, &empty_mask);
+            fprintf(stderr, "write pending, selectwfds: %d\n", selectrwfds);
+
+            errorState = check_select_return_value(selectwfds, errno, &write_select_zero_count);
+
+            if(errorState == SUCCESS){
+                writeMessage(fd, writefds, &commState);
+            }
+            else if(errorState == SELECT_FAILURE){
+                break;
+            }
+            else if(errorState == SELECT_ZERO_COUNT){
+                fprintf(stderr, "write file descriptor not available, select returned zero\n");
+            }
+            else{
+                fprintf(stderr, "error: check_select_return_value returned %d, "
+                        "unhandled value\n", errorState);
             }
         }
-            
+        
+
+        
+
 
     } // end while
 
     // write debug values
     fprintf(stderr, "\n\n**** End of Run  *****\n");
 
-    fprintf(stderr, "select_zero_count: %d, select_fail_count: %d\n", select_zero_count, select_fail_count);
+    fprintf(stderr, "read select_zero_count: %d, write_select_zero_count: %d\n", 
+                        read_select_zero_count, write_select_zero_count);
 
 
     // properly close serial connection

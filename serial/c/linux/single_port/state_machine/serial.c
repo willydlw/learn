@@ -98,6 +98,7 @@ int serial_init(const char *serial_device_name, int baud_rate)
         return -1;
     }
 
+    // Flag settings from https://en.wikibooks.org/wiki/Serial_Programming/termios
 
     // input flags - turn off input processing
 
@@ -108,13 +109,6 @@ int serial_init(const char *serial_device_name, int baud_rate)
     //
     terminalSettings.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
                          INLCR | PARMRK | INPCK | ISTRIP | IXON);
-
-
-    // prior version, remove if above input settings work
-    /** turn off software flow control (outgoing, incoming)
-        allow any character to start flow again
-    terminalSettings.c_iflag &= ~(IXON | IXOFF | IXANY);    
-    */
 
 
     //
@@ -129,11 +123,6 @@ int serial_init(const char *serial_device_name, int baud_rate)
     //                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
     terminalSettings.c_oflag = 0;
 
-    // prior version, remove if above output settings work
-    // configure for raw output
-    // terminalSettings.c_oflag &= ~OPOST; 
-
-
      //
      // No line processing
      //
@@ -141,11 +130,6 @@ int serial_init(const char *serial_device_name, int baud_rate)
      // extended input processing off, signal chars off
      //
      terminalSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
-
-    /* prior version, remove if above line settings work
-    // configure for raw input
-    terminalSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); 
-    */
 
      //
      // Turn off character processing
@@ -171,12 +155,6 @@ int serial_init(const char *serial_device_name, int baud_rate)
        the 'owner' of the port subject to sporatic job control and hangup signals
     */
     //terminalSettings.c_cflag |= CREAD | CLOCAL;     // enable receiver, ignore ctrl lines
-
-    
-
-
-   
-
     
 
     // VMIN sets minimum characters to read
