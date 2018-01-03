@@ -53,11 +53,16 @@ static const uint8_t end_marker = '>';
 static const uint8_t sensor_id[1] = {'1'};
 
 
-const char* debug_comm_state_string[] = 
-	{	"UNUSED", "WAIT_FOR_CONNECTION", "SEND_READY_SIGNAL", "READ_SENSOR", 
-		"SEND_RESET",  "SEND_STOP"};
 
-const char* error_state_string[] { 
+const char* debug_comm_read_state_string[] = 
+	{	"WAIT_FOR_CONNECTION", "READ_SENSOR" };
+
+
+const char* debug_comm_write_state_string[] = 
+	{	"SEND_READY_SIGNAL", "SEND_RESET",  "SEND_STOP"};
+
+
+const char* error_condition_string[] { 
 	"SUCCESS", "SELECT_FAILURE", "SELECT_ZERO_COUNT", 
 	"SERIAL_WRITE_ERROR", "FD_ISSET_ERROR"  };
 
@@ -84,12 +89,12 @@ ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCou
 }
 
 
-int readMessage(int fd, fd_set readfds, uint8_t *buf)
+ssize_t read_message(int fd, fd_set readfds, uint8_t *buf)
 {
 	// since this function will be called numerous times, making 
 	// bytes_read static will save time popping it on/off stack
 	// will use less stack space
-	static int bytes_read;
+	static ssize_t bytes_read = 0;
 
 	if(FD_ISSET(fd, &readfds)){
         // restricting to read maximum of the length of a complete
@@ -104,68 +109,56 @@ int readMessage(int fd, fd_set readfds, uint8_t *buf)
         fprintf(stderr, "\n\n");
 
         // end debug
-
-        return bytes_read;
+        
     }
+
+    return bytes_read;
             
 }
 
 
 
-
-
-ErrorCondition write_message(int fd, int writefds, CommState* commState)
+ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteState)
 {        	
     if(FD_ISSET(fd, &writefds)){
+
+    	ssize_t bytes_written;
+    	ssize_t expected_bytes;
    		
-   		switch(*commState){
+   		switch(commWriteState){
    			case SEND_READY_SIGNAL:
-   				return send_ready_signal(fd, 1);
+   				expected_bytes = (ssize_t)strlen(readyCommand);
+   				bytes_written = serial_write(fd, readyCommand, expected_bytes);
+   				
    			break;
+
+   			case SEND_RESET:
+   				expected_bytes = (ssize_t)strlen(resetCommand);
+   				bytes_written = serial_write(fd, resetCommand, expected_bytes);
+   				
+   			break;
+
+   			case SEND_STOP:
+   				expected_bytes = (ssize_t)strlen(resetCommand);
+   				bytes_written = serial_write(fd, resetCommand, expected_bytes);
+   			break;
+   			default:
+   				fprintf(stderr, "error, function: %s, line: %d, reached default case, "
+   						"commWriteState: %#x\n", __FUNCTION__, __LINE__ , 
+   						(unsigned int)commWriteState);
    		}
+
+   		return expected_bytes == bytes_written? SUCCESS:SERIAL_WRITE_ERROR;
     }
     else{
     	fprintf(stderr, "FD_ISSET(fd, &writefds) not true for fd %d\n", fd);
     	return FD_ISSET_ERROR;
     }
-	
-
-	// returning 0. If function returns above due to an error, all errno values are
-	// greater than 0
-	return SUCCESS;
+    
 }
 
 
-ErrorCondition send_ready_signal(int fd, int max_tries){
 
-	ssize_t expected_bytes = (ssize_t)strlen(comm_state_string[SEND_READY_QUERY]);
-
-    ssize_t bytes_written = 0;
-    int num_tries = 0;
-
-    bytes_written = serial_write(fd, comm_state_string[SEND_READY_QUERY], 
-    								expected_bytes) ;
-    ++num_tries;
-
-    // keep sending until all bytes have been transmitted
-    while( bytes_written != expected_bytes && num_tries <= max_tries){
-    	fprintf(stderr, "error, function %s, did not write all bytes\n", __FUNCTION__);
-        fprintf(stderr, "bytes_written: %ld, should have written %ld bytes\n", 
-        				bytes_written, expected_bytes);
-
-        bytes_written = serial_write(fd, comm_state_string[SEND_READY_QUERY], 
-        								expected_bytes) ;
-        ++num_tries;
-    }
-
-    if(bytes_written == expected_bytes){
-    	return SUCCESS;		// message successfully transmitted
-    }
-    else{
-    	return SERIAL_WRITE_ERROR;		// message not successfully transmitted
-    }
-
-}
 
 
 
@@ -175,13 +168,17 @@ ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *bu
 {
 	
 	fprintf(stderr, "\nstart of %s, message state: %s\n", __FUNCTION__, 
-						message_state_string[msgState]);
+						message_state_string[*msgState]);
 
 	ssize_t i;
+	ssize_t bytes_remaining;
 	
-	for(i = 0; i < bytes_read; ++i){
+	for(i = 0, bytes_remaining = bytes_read; i < bytes_read; ++i){
+
 		fprintf(stderr, "i: %ld, message state: %s, buf[i]: %#x, (char)buf[i]: %c\n", 
-							i, message_state_string[msgState], buf[i], (char)buf[i]);
+							i, message_state_string[*msgState], buf[i], (char)buf[i]);
+
+		--bytes_remaining;
 
 		switch(*msgState){
 			case AWAITING_START_MARKER:
@@ -211,14 +208,19 @@ ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *bu
 				responseData[4] = buf[i];
 				responseData[5] = '\0';     // null terminate the string
 				*msgState = MESSAGE_COMPLETE;
-				return (bytes_read - (i+1));	// bytes not processed
+				return bytes_remaining;	// bytes not processed
 			default:
 				fprintf(stderr, "error: %s, reached default case, msgState: %#x,"
-						" message_state_string: %s\n", __FUNCTION__, msgState, 
-						msgState < NUM_MESSAGE_STATES? message_state_string[msgState]:"unknown");
+						" message_state_string: %s\n", __FUNCTION__, 
+						(unsigned int) *msgState, 
+						*msgState < NUM_MESSAGE_STATES? message_state_string[*msgState]:"unknown");
+				
+				// set message state to await start of new message
+				// throw away the unkown message bytes
+				*msgState = AWAITING_START_MARKER;
 		}
 	}
-	return msgState;
+	return bytes_remaining;
 }
 
 
@@ -235,7 +237,7 @@ bool valid_sensor_id(uint8_t id){
 }
 
 
-void process_data_received(uint16_t theData)
+void process_sensor_data_received(uint16_t theData)
 {
 	fprintf(stderr, "\nentering %s, theData: %u\n", __FUNCTION__, theData);
 	fprintf(stderr, "TODO: this is only a stub function, need to determine how to handle"

@@ -12,13 +12,13 @@
 
 
 // Globals must be initialized in the c file and declared extern in the h file
-extern const char* debug_comm_state_string[];
+extern const char* debug_comm_read_state_string[];
 
-extern const char* comm_state_string[];
+extern const char* debug_comm_write_state_string[];
 
 extern const char* message_state_string[];
 
-extern const char* error_state_string[];
+extern const char* error_condition_string[];
 
 // request messages
 extern const char* readyCommand;
@@ -46,14 +46,18 @@ typedef enum error_conditions_t {
 } ErrorCondition;
 
 
-typedef enum comm_state_t { 
+typedef enum comm_read_state_t { 
+	NO_READ,
+	WAIT_FOR_CONNECTION,
+	READ_SENSOR 
+}CommReadState;
 
-	WAIT_FOR_CONNECTION = 1,
-	SEND_READY_SIGNAL = 2,
-	READ_SENSOR = 3, 
-	SEND_RESET = 4, 
-	SEND_STOP = 5
-}CommState;
+typedef enum comm_write_state_t { 
+	NO_WRITE,
+	SEND_READY_SIGNAL,
+	SEND_RESET, 
+	SEND_STOP
+}CommWriteState;
 
 
 
@@ -68,19 +72,19 @@ typedef enum message_state_t {
 
 ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCount);
 
-int readMessage(int fd, fd_set readfds, uint8_t *buf);
+ssize_t read_message(int fd, fd_set readfds, uint8_t *buf);
 
 ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *buf, 
 											ssize_t bytes_read, uint8_t *responseData);
 
 
-ErrorCondition send_ready_signal(int fd, int max_tries);
+ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteState);
 
 
 bool valid_sensor_id(uint8_t id);
 
 
-void process_data_received(uint16_t theData);
+void process_sensor_data_received(uint16_t theData);
 
 
 
