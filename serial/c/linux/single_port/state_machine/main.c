@@ -116,6 +116,9 @@ int main(){
     // debug variables 
     int read_select_zero_count = 0;
     int write_select_zero_count = 0;
+    int sensor_id_mismatch_count = 0;
+    int default_comm_read_state_count = 0;
+    int default_comm_write_state_count = 0;
 
 
             
@@ -209,7 +212,7 @@ int main(){
             timeout.tv_nsec = 0;                    // nanoseconds
 
             selectrfds = pselect(max_fd, &readfds, NULL, NULL, &timeout, &empty_mask);
-            fprintf(stderr, "number of read pending, selectrfds: %d\n", selectrfds);
+            fprintf(stderr, "\nnumber of read pending, selectrfds: %d\n", selectrfds);
 
             if(exit_request){
                 fprintf(stderr, "received exit request\n");
@@ -217,6 +220,10 @@ int main(){
             }
 
             errorCondition = check_select_return_value(selectrfds, errno, &read_select_zero_count);
+
+            // debug 
+            fprintf(stderr, "commReadState: %d, %s\n", commReadState, 
+                    debug_comm_read_state_string[commReadState]);
 
             if(errorCondition == SUCCESS){
 
@@ -241,16 +248,50 @@ int main(){
                                 case WAIT_FOR_CONNECTION:
                                     // received hello?
                                     if(strcmp((const char*)responseData, helloMessage) == 0){
+                                        fprintf(stderr, "Received Ready Signal\n");
+                                        commReadState = NO_READ;
                                         commWriteState = SEND_READY_SIGNAL;
+                                    }
+                                    else{
+                                        fprintf(stderr, "warning: function: %s, line: %d, "
+                                                "commReadState: %s, expected: %s, ",
+                                                __FUNCTION__, __LINE__, 
+                                                debug_comm_read_state_string[commReadState],
+                                                helloMessage);
+
+                                        fprintf(stderr, "received: ");
+                                        print_array_contents_as_hex(responseData, 
+                                                                        strlen((char*)responseData));
+
+                                        fprintf(stderr, "received: ");
+                                        print_array_contents_as_char((char*)responseData, 
+                                                                        strlen((char*)responseData));
+
+                                    }
+                                break;
+
+                                case READ_ACK:
+                                    // received <ACK>?
+                                    if(strcmp((const char*)responseData, ackResponse) == 0){
+                                        fprintf(stderr, "Received ACK\n");
+                                        commWriteState = NO_WRITE;     // redundant
                                         commReadState = READ_SENSOR;
                                     }
                                     else{
                                         fprintf(stderr, "warning: function: %s, line: %d, "
-                                                "commReadState: %s, expected: %s, "
-                                                "received: %s\n",
+                                                "commReadState: %s, expected: %s, ",
                                                 __FUNCTION__, __LINE__, 
                                                 debug_comm_read_state_string[commReadState],
-                                                helloMessage, responseData);
+                                                ackResponse);
+
+                                        fprintf(stderr, "received: ");
+                                        print_array_contents_as_hex(responseData, 
+                                                                        strlen((char*)responseData));
+
+                                        fprintf(stderr, "received: ");
+                                        print_array_contents_as_char((char*)responseData, 
+                                                                        strlen((char*)responseData));
+
                                     }
                                 break;
 
@@ -270,27 +311,29 @@ int main(){
                                     }
                                     else{
                                         fprintf(stderr, "error: function: %s, line: %d, "
-                                        "SENSOR_ID_MISMATCH, commState: %d\n"
-                                        "expected %d, received: %d\n"
-                                        "not processing responseData, [0] %#x,"
-                                        "[1] %#x, [2] %#x, [3] %#x, [4] %#x\n",
-                                        __FUNCTION__, __LINE__, commReadState,
-                                        sensorId, responseData[1],
-                                        responseData[0], responseData[1],
-                                        responseData[2], responseData[3], responseData[4]);
+                                        "SENSOR_ID_MISMATCH, commState: %d, expected %d\n"
+                                        "not processing responseData: ",
+                                        __FUNCTION__, __LINE__, commReadState, sensorId);
+
+                                        print_array_contents_as_hex(responseData, 
+                                                                        strlen((char*)responseData));
+
+                                        ++sensor_id_mismatch_count;
+
                                     }
                                    
-                                
                                 break;
 
                             default:
                                 fprintf(stderr, "warning: function: %s, line: %d, "
                                         "entered default case, commReadState: %d, "
-                                        "not processing responseData, [0] %#x,"
-                                        "[1] %#x, [2] %#x, [3] %#x, [4] %#x\n",
-                                        __FUNCTION__, __LINE__, commReadState,
-                                        responseData[0], responseData[1],
-                                        responseData[2], responseData[3], responseData[4]);
+                                        "not processing responseData: ", 
+                                        __FUNCTION__, __LINE__, commReadState );
+
+                                print_array_contents_as_hex(responseData, 
+                                                                    strlen((char*)responseData));
+
+                                ++default_comm_read_state_count;
                                         
                             } // end switch
                         } // end if receive message state == message complete
@@ -305,6 +348,10 @@ int main(){
                     fprintf(stderr, "breaking out of while(exit_request) loop\n");
                     break;
                 }
+
+                if(errorCondition == SELECT_ZERO_COUNT){
+                    ++read_select_zero_count;
+                }
             }
         } // end if read state
 
@@ -317,7 +364,11 @@ int main(){
             timeout.tv_nsec = 0;                    // nanoseconds
 
             selectwfds = pselect(max_fd, NULL, &writefds, NULL, &timeout, &empty_mask);
-            fprintf(stderr, "number of write pending, selectwfds: %d\n", selectwfds);
+            fprintf(stderr, "\nnumber of write pending, selectwfds: %d\n", selectwfds);
+
+            // debug 
+            fprintf(stderr, "commWriteState: %d, %s\n", commWriteState,
+                                debug_comm_write_state_string[commWriteState]);
 
             if(exit_request){
                 fprintf(stderr, "received exit request\n");
@@ -336,11 +387,44 @@ int main(){
                         __FUNCTION__, __LINE__, error_condition_string[writeError] );
                 }
                 else{
-                    commWriteState = NO_WRITE;  // message successfully sent
-                }
-                
+
+                    switch (commWriteState){
+                    case SEND_READY_SIGNAL:
+                        // The connected program does not rely on receiving the ready
+                        // signal to transition to its next state of sending sensor data
+                        // No need to resend this signal.
+                        // Basically, this is just an example of how to write, and testing
+                        // the writing ability. 
+                        commReadState = READ_ACK;
+                        commWriteState = NO_WRITE;  // message successfully sent
+                    break;
+
+                    case SEND_RESET:
+                    case SEND_STOP: 
+                        // Note: SEND_RESET, SEND_STOP have not yet been programmed
+                        fprintf(stderr, "error: function %s, line %d\n", __FUNCTION__,__LINE__);
+                        fprintf(stderr, "SEND_STOP, SEND_RESET not yet programmed\n");
+                    break;
+
+                    case NO_WRITE: 
+                        
+                        // not changing state
+                    break;
+                    
+                    default:
+
+                        fprintf(stderr, "warning: function: %s, line: %d, "
+                                    "entered default case, commWriteState: %d",
+                                    __FUNCTION__, __LINE__, commWriteState );
+
+                    
+
+                        ++default_comm_write_state_count;
+                    }
+                } 
             }
-            else{
+            else
+            {
 
                 fprintf(stderr, "error: function: %s, line: %d, errorState: %s\n",
                         __FUNCTION__, __LINE__, error_condition_string[errorCondition]);
@@ -348,28 +432,10 @@ int main(){
                 if(errorCondition == SELECT_FAILURE){
                     fprintf(stderr, "breaking out of while(exit_request) loop\n");
                     break;
-                }
-
-                switch (commWriteState){
-                    case SEND_READY_SIGNAL:
-                        // The connected program does not rely on receiving the ready
-                        // signal to transition to its next state of sending sensor data
-                        // No need to resend this signal.
-                        // Basically, this is just an example of how to write, and testing
-                        // the writing ability. 
-                        commWriteState = NO_WRITE;
-                        commReadState = READ_SENSOR;
-                        break;
-
-                    case SEND_RESET:
-                    case SEND_STOP: 
-                    case NO_WRITE: 
-                        // not changing state
-                        // will attempt to write reset, stop next time through the loop
-                    break;
-                    
-                }
             }
+
+            
+        }
 
         }   // end if(commWriteState)
         
@@ -380,6 +446,8 @@ int main(){
 
     fprintf(stderr, "read select_zero_count: %d, write_select_zero_count: %d\n", 
                         read_select_zero_count, write_select_zero_count);
+
+    fprintf(stderr, "sensor id mismatch count: %d\n", sensor_id_mismatch_count);
 
 
     // properly close serial connection

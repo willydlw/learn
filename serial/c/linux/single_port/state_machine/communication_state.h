@@ -47,16 +47,17 @@ typedef enum error_conditions_t {
 
 
 typedef enum comm_read_state_t { 
-	NO_READ,
-	WAIT_FOR_CONNECTION,
-	READ_SENSOR 
+	NO_READ = 0,
+	WAIT_FOR_CONNECTION = 1,
+	READ_ACK = 2,
+	READ_SENSOR = 3 
 }CommReadState;
 
 typedef enum comm_write_state_t { 
-	NO_WRITE,
-	SEND_READY_SIGNAL,
-	SEND_RESET, 
-	SEND_STOP
+	NO_WRITE = 0,
+	SEND_READY_SIGNAL = 1,
+	SEND_RESET = 2, 
+	SEND_STOP = 3
 }CommWriteState;
 
 
@@ -85,6 +86,10 @@ bool valid_sensor_id(uint8_t id);
 
 
 void process_sensor_data_received(uint16_t theData);
+
+void print_array_contents_as_hex(uint8_t* buf, ssize_t buflength);
+
+void print_array_contents_as_char(char* buf, ssize_t buflength);
 
 
 

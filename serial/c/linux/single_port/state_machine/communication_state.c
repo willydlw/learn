@@ -55,11 +55,12 @@ static const uint8_t sensor_id[1] = {'1'};
 
 
 const char* debug_comm_read_state_string[] = 
-	{	"WAIT_FOR_CONNECTION", "READ_SENSOR" };
+	{	"NO_READ", "WAIT_FOR_CONNECTION", "READ_ACK", "READ_SENSOR" };
 
 
 const char* debug_comm_write_state_string[] = 
-	{	"SEND_READY_SIGNAL", "SEND_RESET",  "SEND_STOP"};
+	{	"NO_WRITE", "SEND_READY_SIGNAL", "SEND_RESET",  "SEND_STOP"};
+
 
 
 const char* error_condition_string[] { 
@@ -162,7 +163,6 @@ ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteSt
 
 
 
-
 ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *buf, 
 											ssize_t bytes_read, uint8_t *responseData)
 {
@@ -175,7 +175,7 @@ ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *bu
 	
 	for(i = 0, bytes_remaining = bytes_read; i < bytes_read; ++i){
 
-		fprintf(stderr, "i: %ld, message state: %s, buf[i]: %#x, (char)buf[i]: %c\n", 
+		fprintf(stderr, "i: %ld, message state: %25s, buf[i]: %#4x, (char)buf[i]: %c\n", 
 							i, message_state_string[*msgState], buf[i], (char)buf[i]);
 
 		--bytes_remaining;
@@ -242,4 +242,25 @@ void process_sensor_data_received(uint16_t theData)
 	fprintf(stderr, "\nentering %s, theData: %u\n", __FUNCTION__, theData);
 	fprintf(stderr, "TODO: this is only a stub function, need to determine how to handle"
 					" real time data updates\n");
+}
+
+
+void print_array_contents_as_hex(uint8_t* buf, ssize_t buflength)
+{
+	ssize_t i;
+	for(i = 0; i < buflength-1; ++i){
+		fprintf(stderr, "buf[%ld] %#x,", i, buf[i]);
+	}
+
+	fprintf(stderr, "buf[%ld] %#x\n", i, buf[i]);
+}
+
+void print_array_contents_as_char(char* buf, ssize_t buflength)
+{
+	ssize_t i;
+	for(i = 0; i < buflength-1; ++i){
+		fprintf(stderr, "buf[%ld] %c,", i, buf[i]);
+	}
+
+	fprintf(stderr, "buf[%ld] %c\n", i, buf[i]);
 }
