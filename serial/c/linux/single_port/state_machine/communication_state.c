@@ -8,11 +8,26 @@
 #include "communication_state.h"
 
 
-// Globals must be initialized in the c file and declared extern in the h file
-const char* message_state_string[] = 
+/* ========== Initialize External Global Constants     ========= */
+const char* debug_message_state_string[] = 
 		{ "AWAITING_START_MARKER", "AWAITING_SENSOR_ID", "AWAITING_DATA_BYTE_ONE",
 		  "AWAITING_DATA_BYTE_TWO", "AWAITING_DATA_BYTE_THREE", 
 		  "AWAITING_END_MARKER", "MESSAGE_COMPLETE"};
+
+
+const char* debug_comm_read_state_string[] = 
+	{	"NO_READ", "WAIT_FOR_CONNECTION", "READ_ACK", "READ_SENSOR" };
+
+
+
+const char* debug_comm_write_state_string[] = 
+	{	"NO_WRITE", "SEND_READY_SIGNAL", "SEND_RESET",  "SEND_STOP"};
+
+
+
+const char* debug_error_condition_string[] { 
+	"SUCCESS", "SELECT_FAILURE", "SELECT_ZERO_COUNT", 
+	"SERIAL_WRITE_ERROR", "FD_ISSET_ERROR"  };
 
 
 /** Note: The messages and commands are in common with the 
@@ -54,18 +69,7 @@ static const uint8_t sensor_id[1] = {'1'};
 
 
 
-const char* debug_comm_read_state_string[] = 
-	{	"NO_READ", "WAIT_FOR_CONNECTION", "READ_ACK", "READ_SENSOR" };
 
-
-const char* debug_comm_write_state_string[] = 
-	{	"NO_WRITE", "SEND_READY_SIGNAL", "SEND_RESET",  "SEND_STOP"};
-
-
-
-const char* error_condition_string[] { 
-	"SUCCESS", "SELECT_FAILURE", "SELECT_ZERO_COUNT", 
-	"SERIAL_WRITE_ERROR", "FD_ISSET_ERROR"  };
 
 
 ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCount)
@@ -168,7 +172,7 @@ ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *bu
 {
 	
 	fprintf(stderr, "\nstart of %s, message state: %s\n", __FUNCTION__, 
-						message_state_string[*msgState]);
+						debug_message_state_string[*msgState]);
 
 	ssize_t i;
 	ssize_t bytes_remaining;
@@ -176,7 +180,7 @@ ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *bu
 	for(i = 0, bytes_remaining = bytes_read; i < bytes_read; ++i){
 
 		fprintf(stderr, "i: %ld, message state: %25s, buf[i]: %#4x, (char)buf[i]: %c\n", 
-							i, message_state_string[*msgState], buf[i], (char)buf[i]);
+							i, debug_message_state_string[*msgState], buf[i], (char)buf[i]);
 
 		--bytes_remaining;
 
@@ -213,7 +217,7 @@ ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *bu
 				fprintf(stderr, "error: %s, reached default case, msgState: %#x,"
 						" message_state_string: %s\n", __FUNCTION__, 
 						(unsigned int) *msgState, 
-						*msgState < NUM_MESSAGE_STATES? message_state_string[*msgState]:"unknown");
+						*msgState < NUM_MESSAGE_STATES? debug_message_state_string[*msgState]:"unknown");
 				
 				// set message state to await start of new message
 				// throw away the unkown message bytes

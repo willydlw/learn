@@ -452,7 +452,7 @@ int main(){
             }
             else{
                 fprintf(stderr, "error: function: %s, line: %d, errorState: %s\n",
-                        __FUNCTION__, __LINE__, error_condition_string[errorCondition]);
+                        __FUNCTION__, __LINE__, debug_error_condition_string[errorCondition]);
                 
                 if(errorCondition == SELECT_FAILURE){
                     fprintf(stderr, "breaking out of while(exit_request) loop\n");
@@ -494,7 +494,7 @@ int main(){
 
                 if(writeError != SUCCESS){
                     fprintf(stderr, "error: function: %s, line: %d, writeError: %s\n",
-                        __FUNCTION__, __LINE__, error_condition_string[writeError] );
+                        __FUNCTION__, __LINE__, debug_error_condition_string[writeError] );
                 }
                 else{
 
@@ -536,7 +536,7 @@ int main(){
             {
 
                 fprintf(stderr, "error: function: %s, line: %d, errorState: %s\n",
-                        __FUNCTION__, __LINE__, error_condition_string[errorCondition]);
+                        __FUNCTION__, __LINE__, debug_error_condition_string[errorCondition]);
 
                 if(errorCondition == SELECT_FAILURE){
                     fprintf(stderr, "breaking out of while(exit_request) loop\n");
