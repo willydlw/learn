@@ -2,14 +2,82 @@
 * FILENAME:     main.c
 *
 * DESCRIPTION:  
-*   Establishes serial connection to /dev/ttyACM0, 9600 baud
+*   Program controls communication flow with another program.
+*
+*   The other program's primary purpose is to send data to 
+*   this program. 
+*
+*   Communication method: serial
+*       Default device path:  /dev/ttyACM0
+*       Default baud rate:    9600 baud
+*       
+*   Signal handling is implemented for SIGINT and SIGTERM
+*       ctrl+c produces the SIGINT
+*
+*       Either of these signals breaks out of the infinite
+*       while loop and properly closes connections, and 
+*       writes any end of program data that should be recorded.       
+*
+*       signal handling references:
+*           http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show
+*           http://man7.org/linux/man-pages/man2/select_tut.2.html
+*
+*
+*   Order of operations:
+*
+*       initialize serial communication
+*       register the signal handlers
+*       set intial state to WAIT_FOR_CONNECTION
+*
+*
+*       while( no exit request from signal interrupt)
+*
+*           if in a read state, read available data
+*           else if in a write state, write data
+*
+*           state WAIT_FOR_CONNECTION
+*               remain in this state until hello message received
+*               transition to SEND_READY_SIGNAL state 
+*
+*           state SEND_READY_SIGNAL
+*               write ready message
+*               transition to READ_ACK state
+*
+*           state READ_ACK
+*               remain in this state until acknowledge message received
+*               transition to READ_SENSOR state
+*
+*           state READ_SENSOR
+*               read received message
+*               upon receiving a complete message
+*                   validate sensor id
+*                   extra sensor data
+*                   process sensor data
+*               remain in READ_SENSOR state until a reset or stop condition
+*            
+*           state SEND_RESET
+*           state SEND_STOP
+*               neither of these states has been programmed yet
+*               they currently serve as a place holder and will
+*               be implemented in the future if needed.
+*               
+*
+*       write summary statistics
+*       close serial connection
 *       
 *
-* signal handling references:
-*   http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show
-*   http://man7.org/linux/man-pages/man2/select_tut.2.html
+* NOTE: Program contains a number of debug messages that are written to
+*       the standard error stream. This allows the user to see every step
+*       of the program flow to ensure messages are correctly received and
+*       indicate all error conditions.
 *
-* AUTHOR:   willydlw        START DATE: 12/24/17
+*
+* PURPOSE: This program is meant as a generic framework for serial communication
+*        with another program. This program's purpose is to receive data
+*        from the other program and prepare it for further processing.
+*
+*
+* AUTHOR:   Diane Williams        START DATE: 1/4/2018
 *
 * CHANGES:
 *
@@ -24,23 +92,63 @@
 #include <stdint.h>     // uint8_t
 #include <string.h>     // memset
 #include <unistd.h>     // usleep
+#include <sys/select.h>
+#include <sys/time.h>
 
 #include "communication_state.h"
 #include "serial.h"
 
 
-#include <sys/select.h>
-#include <sys/time.h>
+/*============== Global Variable Declarations =============================*/
 
 
+/** You have to be careful about the fact that access to a single datum is not necessarily atomic. 
+    This means that it can take more than one instruction to read or write a single object. 
+    In such cases, a signal handler might be invoked in the middle of reading or writing the object.
+
+    To avoid uncertainty about interrupting access to a variable, you can use a particular data 
+    type for which access is always atomic: sig_atomic_t. 
+
+    Reading and writing this data type is guaranteed to happen in a single instruction, 
+    so there’s no way for a handler to run “in the middle” of an access.
+
+    The type sig_atomic_t is always an integer data type, but which one it is, and how many bits 
+    it contains, may vary from machine to machine.
+
+    https://www.gnu.org/software/libc/manual/html_node/Atomic-Types.html#Atomic-Types
+*/
 
 static volatile sig_atomic_t exit_request = 0;
 
 
 
+/*========================= Function Definitions ==========================*/
 
 
-/* signal handler */
+
+/**
+* NAME : void signal_handler_term(int sig)
+*
+* DESCRIPTION: Sets exit request flag to true when SIGINT is received
+*              or when SIGTERM is raised
+*
+* INPUTS: 
+*   Parameters:
+*       int             sig               signal passed from operating system 
+*
+* OUTPUTS:
+*   Globals:
+*       sig_atomic_t    exit_request      flag set to 1 when signal received
+*
+*   Return:
+*       type:           void           
+*
+*      
+* NOTES:
+*       Function is not directly invoked. Operating system calls it when
+*       the registered signal is received. Signals are software interrupts.
+*
+*/
 static void signal_handler_term(int sig)
 {
      /* psignal used for debugging purposes
@@ -72,7 +180,7 @@ int main(){
     void (*sa_restorer)(void);
     }
     */
-    struct sigaction saterm;            // SIGTERM 
+    struct sigaction saterm;            // SIGTERM raised by this program or another
     struct sigaction saint;             // SIGINT caused by ctrl + c
 
     // state variable declaration

@@ -1,7 +1,25 @@
+/****************************************************************
+* FILENAME:     communication_state.h
+*
+* DESCRIPTION:
+*       Finite state machine definitions for communication
+*       with another program.
+*
+*
+*
+*
+* AUTHOR:   Diane Williams        START DATE: 1/4/18
+*
+* CHANGES:
+*
+* DATE          WHO        DETAIL
+*
+*/
+
 #ifndef COMMUNICATION_STATE_H
 #define COMMUNICATION_STATE_H
 
-#include <stdbool.h>
+
 #include <sys/select.h>					// fd_set
 
 #define NUM_MESSAGE_STATES 7
