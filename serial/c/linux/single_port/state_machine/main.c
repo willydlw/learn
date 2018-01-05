@@ -129,7 +129,7 @@ static volatile sig_atomic_t exit_request = 0;
 /**
 * NAME : void signal_handler_term(int sig)
 *
-* DESCRIPTION: Sets exit request flag to true when SIGINT is received
+* DESCRIPTION: Sets exit request flag to 1 when SIGINT is received
 *              or when SIGTERM is raised
 *
 * INPUTS: 
@@ -167,7 +167,7 @@ static void signal_handler_term(int sig)
 
 int main(){
 
-    // signal 
+    // signal mask
     sigset_t sigmask;
     sigset_t empty_mask;
     
@@ -183,37 +183,39 @@ int main(){
     struct sigaction saterm;            // SIGTERM raised by this program or another
     struct sigaction saint;             // SIGINT caused by ctrl + c
 
-    // state variable declaration
-    MessageState  receive_message_state = AWAITING_START_MARKER;
-
+   
     // serial
     int fd = -1;                        // file descriptor
     int baudrate = 9600;
     const char* serial_device_path = "/dev/ttyACM0";
     
-    ssize_t bytes_read;
-    uint8_t buf[16];
+    ssize_t bytes_read;                 
+    uint8_t buf[16];                    // temporarily stores bytes read from serial port
 
 
     // file descriptor sets
-    fd_set readfds;
-    fd_set writefds;
+    fd_set readfds;                     // read file descriptor set
+    fd_set writefds;                    // write file descriptor set
+
+    int max_fd;                         // largest file descriptor value
+    int selectrfds;                     // number read file descriptors pending
+    int selectwfds;                     // number write file descriptors pending
    
 
-    struct timespec timeout;
-    int max_fd;                     // largest file descriptor value
-    int selectrfds;                 // number read file descriptors pending
-    int selectwfds;                 // number write file descriptors pending
-
+    struct timespec timeout;            // timeout for pselect
     
-    // received message data
+    
+    // received message data that is transferred here from buf
     uint8_t responseData[MESSAGE_LENGTH_BYTES + 1];  // plus 1 for null terminator
 
     // data received from the sensor
     uint8_t sensorId = 1;
     uint16_t sensorData; 
 
-    
+
+     // state variable declaration
+    MessageState  receive_message_state = AWAITING_START_MARKER;
+
     // read and write states
     CommReadState commReadState = WAIT_FOR_CONNECTION;
     CommWriteState commWriteState = NO_WRITE;
@@ -525,7 +527,6 @@ int main(){
                                     "entered default case, commWriteState: %d",
                                     __FUNCTION__, __LINE__, commWriteState );
 
-                    
 
                         ++default_comm_write_state_count;
                     }
@@ -550,12 +551,21 @@ int main(){
     } // end while( !exit_request)
 
     // write debug values
-    fprintf(stderr, "\n\n**** End of Run  *****\n");
+    fprintf(stderr, "\n\n=====     End of Run     =====\n\n");
 
-    fprintf(stderr, "read select_zero_count: %d, write_select_zero_count: %d\n", 
+    fprintf(stderr, "How many times did select return 0? Relates to timing issues\n");
+    fprintf(stderr, "read select_zero_count:  %d\n"
+                    "write_select_zero_count: %d\n", 
                         read_select_zero_count, write_select_zero_count);
 
+    fprintf(stderr, "\nWere there any sensor id mismactches? If so, data was lost. Needs correction\n");
     fprintf(stderr, "sensor id mismatch count: %d\n", sensor_id_mismatch_count);
+
+    // Display number of times a switch default case occurred
+    fprintf(stderr, "\nDefault state counts should all be zero\n");
+    fprintf(stderr, "default_comm_read_state_count: %d\n", default_comm_read_state_count);
+    fprintf(stderr, "default_comm_write_state_count: %d\n", default_comm_write_state_count);
+
 
 
     // properly close serial connection
