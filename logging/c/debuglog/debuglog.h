@@ -35,6 +35,7 @@ extern "C"{
 
 	#define MAX_MESSAGE_SIZE 256
 
+
 	/* levels */
 	#define LOG_TRACE 0			// trace program execution
 
@@ -55,7 +56,8 @@ extern "C"{
 	#define LOG_OFF   6 		// no logging 
 
 
-
+	#define DEFAULT_CONSOLE_LEVEL LOG_INFO
+	#define DEFAULT_FILE_LEVEL    LOG_OFF
 	
 
 
@@ -63,11 +65,9 @@ extern "C"{
 	/* settings */
 	typedef struct log_flags_t
 	{
-		const char* fileName;
 		FILE *fp;
 		int fileLevel;
 		int consoleLevel;
-		int writeToFile;
 		int displayColor;
 		
 	}LogFlags;
@@ -101,8 +101,20 @@ extern "C"{
 *		
 *
 */
-void debuglog_init(const char* logFileName, const char* configFileName,
-				int consoleLevel, int fileLevel);
+void log_cofig(const char* configFileName);
+
+
+
+void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn);
+
+static void set_flag_defaults(void);
+
+static void set_display_color(int onOff);
+
+static void set_file_level(int logLevel);
+
+static void set_console_level(int logLevel);
+
 
 int parse_configuration_file(const char* configFileName);
 

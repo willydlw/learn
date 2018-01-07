@@ -150,40 +150,16 @@ int parse_configuration_file(const char* configFileName)
 	while(!feof(fp) && fscanf(fp, "%s%d", word, &ivalue) == 2){
 		
 		if(strcmp(word, "consoleLogLevel") == 0){
-			if(ivalue <= LOG_FATAL)
-			{
-				logFlags.consoleLevel = ivalue;
-			}
-			else{
-				logFlags.consoleLevel = LOG_INFO;
-				fprintf(stderr, "%s %s %d, invalid console log level: %d, defaulting to %s\n",
-							__FILE__, __FUNCTION__, __LINE__, ivalue, log_level_names[LOG_INFO]);
-			}
-			
+			set_console_level(ivalue);
 		}
 		else if(strcmp(word, "fileLogLevel") == 0){
-
-			if(ivalue <= LOG_FATAL)
-			{
-				logFlags.fileLevel = ivalue;
-			}
-			else{
-				logFlags.fileLevel = LOG_INFO;
-				fprintf(stderr, "%s %s %d, invalid file log level: %d, defaulting to %s\n",
-							__FILE__, __FUNCTION__, __LINE__, ivalue, log_level_names[LOG_INFO]);
-			}
-
-		}
-		else if(strcmp(word, "writeToFile") == 0){
-			// non-zero values will be converted to 1
-			logFlags.writeToFile = ivalue == 0? 0:1;
+			set_file_level(ivalue);
 		}
 		else if(strcmp(word, "displayColor") == 0){
 			logFlags.displayColor = ivalue == 0? 0:1;
 		}
 		else{
-			fprintf(stderr, "%s %s %d, ignoring: %s, ignoring: %d\n",
-							__FILE__, __FUNCTION__, __LINE__, word, ivalue); 
+			logit(DEFAULT_CONSOLE_LEVEL, "ignoring: %s, ignoring: %d\n", word, ivalue); 
 		}
 	}
 
@@ -192,20 +168,79 @@ int parse_configuration_file(const char* configFileName)
 	return 1;
 }
 
+void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn)
+{
+	set_flag_defaults();
+	set_console_level(consoleLogLevel);
+	set_file_level(fileLogLevel);
+	set_display_color(colorDisplayOn);
+}
 
-void debuglog_init(const char* logFileName, const char* configFileName,
-				int consoleLevel, int fileLevel)
+
+static void set_flag_defaults(void)
+{
+	/** populate struct values */
+	logFlags.fp = NULL;
+	logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
+	logFlags.fileLevel = DEFAULT_FILE_LEVEL;
+	logFlags.displayColor = 0;
+
+}
+
+
+static void set_display_color(int onOff)
+{
+	logFlags.displayColor = onOff == 0? 0:1;
+}
+
+
+static void set_console_level(int logLevel)
+{
+	if(logLevel <= LOG_OFF){
+		logFlags.consoleLevel = logLevel;
+	}
+	else{
+		
+		logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
+		logit(DEFAULT_CONSOLE_LEVEL, "invalid console level: %d, using default %s", 
+			logLevel, log_level_names[DEFAULT_CONSOLE_LEVEL]);
+	}
+}
+
+
+static void set_file_level(int logLevel)
+{
+	if(logLevel <= LOG_OFF){
+		logFlags.fileLevel = logLevel;
+	}
+	else{
+		
+		logFlags.fileLevel = DEFAULT_FILE_LEVEL;
+		logit(LOG_WARN, "invalid file level: %d, using default %s", 
+			logLevel, log_level_names[DEFAULT_FILE_LEVEL]);
+	}
+
+	if(logFlags.fileLevel < LOG_OFF){
+		char filename[256];
+
+		// apend date, time to file name
+		time_t currentTime = time(NULL);
+		struct tm *ts = localtime(&currentTime);
+		strftime(filename, sizeof(filename), "/log/logdata_%Y-%m-%d_%H:%M:%S", ts);
+
+		logFlags.fp = fopen(filename, "w");
+		if(logFlags.fp == NULL){
+			logit(LOG_WARN, "log file: %s did not open", filename);
+		}
+	}
+}
+
+
+void log_config(const char* configFileName)
 {
 
-	START HERE: REEVALUATE DEFAULT SETTINGS, HOW IS FILE OPENED?
-
-
 	/** populate struct values */
-	logFlags.fileName = logFileName;
-	logFlags.fp = NULL;
-	logFlags.consoleLevel = consoleLevel;
-	logFlags.fileLevel = fileLevel;
-	logFlags.writeToFile = 0;
+	set_flag_defaults();
 
 	// parse configuration file if it exists
 	if(configFileName != NULL){
@@ -213,7 +248,7 @@ void debuglog_init(const char* logFileName, const char* configFileName,
 			logit(LOG_INFO, "Configuring logger from %s", configFileName);
 		}
 		else{
-			logit(LOG_INFO, "No configuration file, initializing log values with defaults");
+			logit(LOG_WARN, "No configuration file, initializing log values with defaults");
 		}
 	}
 
