@@ -9,23 +9,65 @@
 extern "C"{
 #endif
 
-	extern const char* log_level_string[];
+	/* define macros */
+	#define log_all(...) \
+		logit(LOG_ALL, __VA_ARGS__);
+
+	#define log_debug(...) \
+		logit(LOG_DEBUG, __VA_ARGS__);
+
+	#define log_info(LEVEL, ...) \
+		logit(LOG_INFO, __VA_ARGS__);
+
+	#define log_warn(LEVEL, ...) \
+		logit(LOG_WARN, __VA_ARGS__);
+
+	#define log_error(LEVEL, ...) \
+		logit(LOG_ERROR, __VA_ARGS__);
+
+	#define log_fatal(LEVEL, ...) \
+		logit(LOG_FATAL, __VA_ARGS__);
+
+	#define log_off(LEVEL, ...) \
+		logit(LOG_OFF, __VA_ARGS__);
+
+
+
+	#define MAX_MESSAGE_SIZE 256
 
 	/* levels */
-	typedef enum log_level_t{
-		LOG_NONE, LOG_INFO, LOG_DEBUG,  LOG_WARN, LOG_ERROR, LOG_FATAL
-	} LogLevel;
+	#define LOG_TRACE 0			// trace program execution
+
+	#define LOG_DEBUG 1			// info that is diagnostically helpful to others, not 
+								// just developers
+
+	#define LOG_INFO  2			// generally useful information to log
+								//	service start/stop, configuration assumptions
+
+	#define LOG_WARN  3			// anything that can potentially cause application oddities
+								//  but the application is automatically recovering
+
+	#define LOG_ERROR 4			// errors that are fatal to the operation, but not the service
+								//  or application. Will require attention.
+
+	#define LOG_FATAL 5			// any error that forces a shutdown
+	
+	#define LOG_OFF   6 		// no logging 
 
 
 
-	/* flags */
+	
+
+
+
+	/* settings */
 	typedef struct log_flags_t
 	{
 		const char* fileName;
+		FILE *fp;
 		int fileLevel;
 		int consoleLevel;
 		int writeToFile;
-		int recordTimeStamp;
 		int displayColor;
 		
 	}LogFlags;
