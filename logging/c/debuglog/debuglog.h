@@ -9,9 +9,11 @@
 extern "C"{
 #endif
 
+	#include <stdio.h>				// FILE*
+
 	/* define macros */
-	#define log_all(...) \
-		logit(LOG_ALL, __VA_ARGS__);
+	#define log_trace(...) \
+		logit(LOG_TRACE, __VA_ARGS__);
 
 	#define log_debug(...) \
 		logit(LOG_DEBUG, __VA_ARGS__);
@@ -104,16 +106,17 @@ extern "C"{
 void log_cofig(const char* configFileName);
 
 
+void logit(int level, const char *fmt, ...);
 
 void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn);
 
-static void set_flag_defaults(void);
+void set_flag_defaults(void);
 
-static void set_display_color(int onOff);
+void set_display_color(int onOff);
 
-static void set_file_level(int logLevel);
+void set_file_level(int logLevel);
 
-static void set_console_level(int logLevel);
+void set_console_level(int logLevel);
 
 
 int parse_configuration_file(const char* configFileName);

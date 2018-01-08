@@ -70,7 +70,7 @@ void logit(int level, const char *fmt, ...)
 	struct tm  *ts;
 	
 
-	if(level < logFlags.consoleLevel && level < logFlags.fileLevel){
+	if(level > logFlags.consoleLevel && level > logFlags.fileLevel){
 		return;
 	}
 
@@ -82,6 +82,7 @@ void logit(int level, const char *fmt, ...)
 	
 	// console logging
 	if(level < logFlags.consoleLevel){
+		
 		va_list args;
 		
 		char timeBuffer[16];					// stores formatted time
@@ -91,12 +92,12 @@ void logit(int level, const char *fmt, ...)
  
 		if(logFlags.displayColor){
 			fprintf(stderr, "%s %s %-5s\x1b[0m \x1b[90m%s:%s:%d:\x1b[0m ", 
-				timeBuffer, log_level_colors[logFlags.consoleLevel], 
-				log_level_names[logFlags.consoleLevel], __FILE__, __FUNCTION__, __LINE__);
+				timeBuffer, log_level_colors[level], 
+				log_level_names[level], __FILE__, __FUNCTION__, __LINE__);
 		}
 		else{
 			fprintf(stderr, "%s %-5s %s:%s:%d: ", 
-				timeBuffer, log_level_names[logFlags.consoleLevel],
+				timeBuffer, log_level_names[level],
 				__FILE__, __FUNCTION__, __LINE__);
 		}
 
@@ -120,13 +121,13 @@ void logit(int level, const char *fmt, ...)
 		timeBuffer[strftime(timeBuffer, sizeof(timeBuffer), "%a %Y-%m-%d %H:%M:%S %Z", ts)] = '\0';
 
 		fprintf(logFlags.fp, "%s %-5s %s:%s:%d: ", 
-				timeBuffer, log_level_names[logFlags.consoleLevel],
+				timeBuffer, log_level_names[level],
 				__FILE__, __FUNCTION__, __LINE__);
 
 		va_start(args, fmt);
 		vfprintf(logFlags.fp, fmt, args);
 		va_end(args);
-		fprintf(stderr, "\n");
+		fprintf(logFlags.fp, "\n");
 
 	}
 }
@@ -170,14 +171,13 @@ int parse_configuration_file(const char* configFileName)
 
 void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn)
 {
-	set_flag_defaults();
 	set_console_level(consoleLogLevel);
 	set_file_level(fileLogLevel);
 	set_display_color(colorDisplayOn);
 }
 
 
-static void set_flag_defaults(void)
+void set_flag_defaults(void)
 {
 	/** populate struct values */
 	logFlags.fp = NULL;
@@ -188,16 +188,18 @@ static void set_flag_defaults(void)
 }
 
 
-static void set_display_color(int onOff)
+void set_display_color(int onOff)
 {
 	logFlags.displayColor = onOff == 0? 0:1;
 }
 
 
-static void set_console_level(int logLevel)
+void set_console_level(int logLevel)
 {
 	if(logLevel <= LOG_OFF){
+		fprintf(stderr, "logLevel <= LOG_OFF true\n");
 		logFlags.consoleLevel = logLevel;
+		fprintf(stderr, "logFlags.consoleLevel set to %s\n", log_level_names[logFlags.consoleLevel]);
 	}
 	else{
 		
@@ -208,7 +210,7 @@ static void set_console_level(int logLevel)
 }
 
 
-static void set_file_level(int logLevel)
+void set_file_level(int logLevel)
 {
 	if(logLevel <= LOG_OFF){
 		logFlags.fileLevel = logLevel;
