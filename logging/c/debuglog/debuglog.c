@@ -49,18 +49,21 @@ static const  char* log_level_names[] = {
 	*   \x1b[0m means reset all attributes
 	*
 
-	#define COLOR_RESET		"\0x1b[0m"
-	#define COLOR_GRAY		"\0x1b[30m"
-	#define COLOR_RED		"\0x1b[31m"
-	#define COLOR_GREEN		"\0x1b[32m"
-	#define COLOR_YELLOW	"\0x1b[33m"
-	#define COLOR_BLUE		"\0x1b[34m"
-	#define COLOR_MAGENTA	"\0x1b[35m"
-	#define COLOR_CYAN		"\0x1b[36m"
-	#define COLOR_WHITE		"\0x1b[37m"
+	reset		"\x1b[0m"
+	gray		"\x1b[0;30m"		bold 		"\x1b[1;30m"
+	red 		"\x1b[0;31m"		bold 		"\x1b[1;31m"
+	green		"\x1b[0;32m"		bold 		"\x1b[0;32m"
+	yellow		"\x1b[0;33m"		bold 		"\x1b[1;33m"
+	blue		"\x1b[0;34m"
+	magenta		"\x1b[0;35m"
+	cyan 		"\x1b[0;36m"
+	white		"\x1b[0;37m"
+
+	\x1b[31;1m
 	*/
 static const char* log_level_colors[] ={
-				"\0x1b[30m", "\0x1b[32m", "\0x1b[37m", "\0x1b[33m", "\0x1b[31m", "\0x1b[34m"
+				"\x1b[1;35m", "\x1b[1;32;1m", "\x1b[1;37;1m", "\x1b[1;33;1m", "\x1b[1;31;1m", 
+				"\x1b[1;34;1m"
 };
 
 
@@ -81,7 +84,7 @@ void logit(int level, const char* file, const char* function, int line, const ch
 
 	
 	// console logging
-	if(level < logFlags.consoleLevel){
+	if(level <= logFlags.consoleLevel){
 		
 		va_list args;
 		
@@ -91,9 +94,12 @@ void logit(int level, const char* file, const char* function, int line, const ch
 		timeBuffer[strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", ts)] = '\0';
  
 		if(logFlags.displayColor){
-			fprintf(stderr, "%s %s %-5s\x1b[0m \x1b[90m%s:%s:%d:\x1b[0m ", 
+			// display level in color
+			// display file:funct:line in gray
+			// other text in normal color
+			fprintf(stderr, "%s %s%-5s\x1b[0m \x1b[90m%s:%s:%d:\x1b[0m ", 
 				timeBuffer, log_level_colors[level], 
-				log_level_names[level], file, function, line);
+				log_level_names[level], file, function, line); 
 		}
 		else{
 			fprintf(stderr, "%s %-5s %s:%s:%d: ", 
@@ -108,7 +114,7 @@ void logit(int level, const char* file, const char* function, int line, const ch
 	}
 
 	// file logging
-	if(level < logFlags.fileLevel && logFlags.fp != NULL){
+	if(level <= logFlags.fileLevel && logFlags.fp != NULL){
 
 		va_list args;
 		char timeBuffer[32];
