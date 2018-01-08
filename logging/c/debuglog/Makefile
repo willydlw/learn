@@ -1,5 +1,5 @@
 All: debuglog.o 
-	g++ -shared -Wl,-soname,libdebuglog.so.1 -o libdebuglog.so.1.0 debuglog.o \
+	gcc -shared -Wl,-soname,libdebuglog.so.1 -o libdebuglog.so.1.0 debuglog.o \
 	-lc
 
 # command line option ‘-Wtraditional’ is valid for C/ObjC 
@@ -19,12 +19,12 @@ install:
 	mv *.so.1.0 /usr/local/lib
 	ln -sf /usr/local/lib/libdebuglog.so.1.0 /usr/local/lib/libdebuglog.so
 	ln -sf /usr/local/lib/libdebuglog.so.1.0 /usr/local/lib/libdebuglog.so.1
-	cp debuglog.h /usr/local/include/cdebuglog
+	cp debuglog.h /usr/local/include/debuglog
 
 uninstall:
 	rm /usr/local/lib/libdebuglog.so.1.0
 	rm /usr/local/lib/libdebuglog.so.1
-	rm /usr/local/include/cdebuglog/debuglog.h
+	rm /usr/local/include/debuglog/debuglog.h
 	
 
 clean:

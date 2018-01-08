@@ -148,7 +148,7 @@ int parse_configuration_file(const char* configFileName)
 	fp = fopen(configFileName, "r");
 	if(fp == NULL){
 		fprintf(stderr, "%s %s %d, %s failed to open\n", __FILE__, 
-				__FUNCTION__, __LINE__, configFileName);
+				__func__, __LINE__, configFileName);
 		return 0;
 	}
 
@@ -165,7 +165,7 @@ int parse_configuration_file(const char* configFileName)
 			logFlags.displayColor = ivalue == 0? 0:1;
 		}
 		else{
-			logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __FUNCTION__,
+			logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __func__,
 					__LINE__, "ignoring: %s, ignoring: %d\n", word, ivalue); 
 		}
 	}
@@ -209,7 +209,7 @@ void set_console_level(int logLevel)
 	else{
 		
 		logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
-		logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __FUNCTION__, __LINE__,
+		logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __func__, __LINE__,
 				"invalid console level: %d, using default %s", 
 				logLevel, log_level_names[DEFAULT_CONSOLE_LEVEL]);
 	}
@@ -225,7 +225,7 @@ void set_file_level(int logLevel)
 	else{
 		
 		logFlags.fileLevel = DEFAULT_FILE_LEVEL;
-		logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
+		logit(LOG_WARN, __FILE__, __func__, __LINE__,
 				"invalid file level: %d, using default %s", 
 				logLevel, log_level_names[DEFAULT_FILE_LEVEL]);
 	}
@@ -241,7 +241,7 @@ void set_file_level(int logLevel)
 		logFlags.fp = fopen(filename, "w");
 		if(logFlags.fp == NULL){
 			logFlags.fileLevel = LOG_OFF;
-			logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
+			logit(LOG_WARN, __FILE__, __func__, __LINE__,
 					"log file: %s did not open", filename);
 		}
 	}
@@ -257,11 +257,11 @@ void log_config(const char* configFileName)
 	// parse configuration file if it exists
 	if(configFileName != NULL){
 		if(parse_configuration_file(configFileName)){
-			logit(LOG_INFO, __FILE__, __FUNCTION__, __LINE__,
+			logit(LOG_INFO, __FILE__, __func__, __LINE__,
 					"Configuring logger from %s", configFileName);
 		}
 		else{
-			logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
+			logit(LOG_WARN, __FILE__, __func__, __LINE__,
 					"No configuration file, initializing log values with defaults");
 		}
 	}

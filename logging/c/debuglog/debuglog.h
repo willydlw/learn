@@ -13,25 +13,25 @@ extern "C"{
 
 	/* define macros */
 	#define log_trace(...) \
-		logit(LOG_TRACE, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_TRACE, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 	#define log_debug(...) \
-		logit(LOG_DEBUG, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_DEBUG, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 	#define log_info(...) \
-		logit(LOG_INFO, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_INFO, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 	#define log_warn(...) \
-		logit(LOG_WARN, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_WARN, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 	#define log_error(...) \
-		logit(LOG_ERROR, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_ERROR, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 	#define log_fatal(...) \
-		logit(LOG_FATAL, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_FATAL, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 	#define log_off(...) \
-		logit(LOG_OFF, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
+		logit(LOG_OFF, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 
 
