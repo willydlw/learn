@@ -203,7 +203,6 @@ void set_display_color(int onOff)
 void set_console_level(int logLevel)
 {
 	if(logLevel <= LOG_OFF){
-		fprintf(stderr, "logLevel <= LOG_OFF true\n");
 		logFlags.consoleLevel = logLevel;
 		fprintf(stderr, "logFlags.consoleLevel set to %s\n", log_level_names[logFlags.consoleLevel]);
 	}
@@ -221,6 +220,7 @@ void set_file_level(int logLevel)
 {
 	if(logLevel <= LOG_OFF){
 		logFlags.fileLevel = logLevel;
+		fprintf(stderr, "logFlags.fileLevel set to %s\n", log_level_names[logFlags.fileLevel]);
 	}
 	else{
 		
@@ -236,10 +236,11 @@ void set_file_level(int logLevel)
 		// apend date, time to file name
 		time_t currentTime = time(NULL);
 		struct tm *ts = localtime(&currentTime);
-		strftime(filename, sizeof(filename), "/log/logdata_%Y-%m-%d_%H:%M:%S", ts);
+		strftime(filename, sizeof(filename), "~/mydebuglog/logdata_%Y-%m-%d_%H:%M:%S.log", ts);
 
 		logFlags.fp = fopen(filename, "w");
 		if(logFlags.fp == NULL){
+			logFlags.fileLevel = LOG_OFF;
 			logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
 					"log file: %s did not open", filename);
 		}
