@@ -64,7 +64,7 @@ static const char* log_level_colors[] ={
 };
 
 
-void logit(int level, const char *fmt, ...)
+void logit(int level, const char* file, const char* function, int line, const char *fmt, ...)
 {
 	time_t currentTime;
 	struct tm  *ts;
@@ -93,12 +93,12 @@ void logit(int level, const char *fmt, ...)
 		if(logFlags.displayColor){
 			fprintf(stderr, "%s %s %-5s\x1b[0m \x1b[90m%s:%s:%d:\x1b[0m ", 
 				timeBuffer, log_level_colors[level], 
-				log_level_names[level], __FILE__, __FUNCTION__, __LINE__);
+				log_level_names[level], file, function, line);
 		}
 		else{
 			fprintf(stderr, "%s %-5s %s:%s:%d: ", 
 				timeBuffer, log_level_names[level],
-				__FILE__, __FUNCTION__, __LINE__);
+				file, function, line);
 		}
 
 		va_start(args, fmt);
@@ -121,8 +121,7 @@ void logit(int level, const char *fmt, ...)
 		timeBuffer[strftime(timeBuffer, sizeof(timeBuffer), "%a %Y-%m-%d %H:%M:%S %Z", ts)] = '\0';
 
 		fprintf(logFlags.fp, "%s %-5s %s:%s:%d: ", 
-				timeBuffer, log_level_names[level],
-				__FILE__, __FUNCTION__, __LINE__);
+				timeBuffer, log_level_names[level], file, function, line);
 
 		va_start(args, fmt);
 		vfprintf(logFlags.fp, fmt, args);
@@ -160,7 +159,8 @@ int parse_configuration_file(const char* configFileName)
 			logFlags.displayColor = ivalue == 0? 0:1;
 		}
 		else{
-			logit(DEFAULT_CONSOLE_LEVEL, "ignoring: %s, ignoring: %d\n", word, ivalue); 
+			logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __FUNCTION__,
+					__LINE__, "ignoring: %s, ignoring: %d\n", word, ivalue); 
 		}
 	}
 
@@ -204,8 +204,9 @@ void set_console_level(int logLevel)
 	else{
 		
 		logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
-		logit(DEFAULT_CONSOLE_LEVEL, "invalid console level: %d, using default %s", 
-			logLevel, log_level_names[DEFAULT_CONSOLE_LEVEL]);
+		logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __FUNCTION__, __LINE__,
+				"invalid console level: %d, using default %s", 
+				logLevel, log_level_names[DEFAULT_CONSOLE_LEVEL]);
 	}
 }
 
@@ -218,8 +219,9 @@ void set_file_level(int logLevel)
 	else{
 		
 		logFlags.fileLevel = DEFAULT_FILE_LEVEL;
-		logit(LOG_WARN, "invalid file level: %d, using default %s", 
-			logLevel, log_level_names[DEFAULT_FILE_LEVEL]);
+		logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
+				"invalid file level: %d, using default %s", 
+				logLevel, log_level_names[DEFAULT_FILE_LEVEL]);
 	}
 
 	if(logFlags.fileLevel < LOG_OFF){
@@ -232,7 +234,8 @@ void set_file_level(int logLevel)
 
 		logFlags.fp = fopen(filename, "w");
 		if(logFlags.fp == NULL){
-			logit(LOG_WARN, "log file: %s did not open", filename);
+			logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
+					"log file: %s did not open", filename);
 		}
 	}
 }
@@ -247,10 +250,12 @@ void log_config(const char* configFileName)
 	// parse configuration file if it exists
 	if(configFileName != NULL){
 		if(parse_configuration_file(configFileName)){
-			logit(LOG_INFO, "Configuring logger from %s", configFileName);
+			logit(LOG_INFO, __FILE__, __FUNCTION__, __LINE__,
+					"Configuring logger from %s", configFileName);
 		}
 		else{
-			logit(LOG_WARN, "No configuration file, initializing log values with defaults");
+			logit(LOG_WARN, __FILE__, __FUNCTION__, __LINE__,
+					"No configuration file, initializing log values with defaults");
 		}
 	}
 

@@ -13,25 +13,25 @@ extern "C"{
 
 	/* define macros */
 	#define log_trace(...) \
-		logit(LOG_TRACE, __VA_ARGS__);
+		logit(LOG_TRACE, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
 	#define log_debug(...) \
-		logit(LOG_DEBUG, __VA_ARGS__);
+		logit(LOG_DEBUG, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
-	#define log_info(LEVEL, ...) \
-		logit(LOG_INFO, __VA_ARGS__);
+	#define log_info(...) \
+		logit(LOG_INFO, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
-	#define log_warn(LEVEL, ...) \
-		logit(LOG_WARN, __VA_ARGS__);
+	#define log_warn(...) \
+		logit(LOG_WARN, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
-	#define log_error(LEVEL, ...) \
-		logit(LOG_ERROR, __VA_ARGS__);
+	#define log_error(...) \
+		logit(LOG_ERROR, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
-	#define log_fatal(LEVEL, ...) \
-		logit(LOG_FATAL, __VA_ARGS__);
+	#define log_fatal(...) \
+		logit(LOG_FATAL, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
-	#define log_off(LEVEL, ...) \
-		logit(LOG_OFF, __VA_ARGS__);
+	#define log_off(...) \
+		logit(LOG_OFF, __FILE__, __FUNCTION__ ,__LINE__, __VA_ARGS__);
 
 
 
@@ -106,7 +106,7 @@ extern "C"{
 void log_cofig(const char* configFileName);
 
 
-void logit(int level, const char *fmt, ...);
+void logit(int level, const char* file, const char* function, int line, const char *fmt, ...);
 
 void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn);
 
