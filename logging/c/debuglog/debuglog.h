@@ -38,7 +38,7 @@ extern "C"{
 	#define MAX_MESSAGE_SIZE 256
 
 
-	/* levels */
+	/* levels 
 	#define LOG_TRACE 0			// trace program execution
 
 	#define LOG_DEBUG 1			// info that is diagnostically helpful to others, not 
@@ -57,11 +57,17 @@ extern "C"{
 	
 	#define LOG_OFF   6 		// no logging 
 
+	*/
+
+
+	typedef enum log_level_t{
+		LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL, LOG_OFF
+	}LogLevel;
+
 
 	#define DEFAULT_CONSOLE_LEVEL LOG_INFO
 	#define DEFAULT_FILE_LEVEL    LOG_OFF
 	
-
 
 
 	/* settings */
@@ -120,6 +126,8 @@ void set_console_level(int logLevel);
 
 
 int parse_configuration_file(const char* configFileName);
+
+void close_log_file(void);
 
 
 

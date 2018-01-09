@@ -1,5 +1,0 @@
-consoleLogLevel		2
-fileLogLevel	    5
-displayColor		1
-writeToFile			1
-recordTimeStamp		1

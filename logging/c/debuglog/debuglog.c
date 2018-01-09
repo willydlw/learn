@@ -71,9 +71,9 @@ void logit(int level, const char* file, const char* function, int line, const ch
 {
 	time_t currentTime;
 	struct tm  *ts;
-	
 
-	if(level > logFlags.consoleLevel && level > logFlags.fileLevel){
+	// if message is lower than both logging levels, no further processing will happen
+	if(level < logFlags.consoleLevel && level < logFlags.fileLevel){
 		return;
 	}
 
@@ -84,7 +84,7 @@ void logit(int level, const char* file, const char* function, int line, const ch
 
 	
 	// console logging
-	if(level <= logFlags.consoleLevel){
+	if(level >= logFlags.consoleLevel){
 		
 		va_list args;
 		
@@ -114,7 +114,7 @@ void logit(int level, const char* file, const char* function, int line, const ch
 	}
 
 	// file logging
-	if(level <= logFlags.fileLevel && logFlags.fp != NULL){
+	if(level >= logFlags.fileLevel && logFlags.fp != NULL){
 
 		va_list args;
 		char timeBuffer[32];
@@ -204,7 +204,6 @@ void set_console_level(int logLevel)
 {
 	if(logLevel <= LOG_OFF){
 		logFlags.consoleLevel = logLevel;
-		fprintf(stderr, "logFlags.consoleLevel set to %s\n", log_level_names[logFlags.consoleLevel]);
 	}
 	else{
 		
@@ -220,7 +219,6 @@ void set_file_level(int logLevel)
 {
 	if(logLevel <= LOG_OFF){
 		logFlags.fileLevel = logLevel;
-		fprintf(stderr, "logFlags.fileLevel set to %s\n", log_level_names[logFlags.fileLevel]);
 	}
 	else{
 		
@@ -230,13 +228,14 @@ void set_file_level(int logLevel)
 				logLevel, log_level_names[DEFAULT_FILE_LEVEL]);
 	}
 
+
 	if(logFlags.fileLevel < LOG_OFF){
 		char filename[256];
 
 		// apend date, time to file name
 		time_t currentTime = time(NULL);
 		struct tm *ts = localtime(&currentTime);
-		strftime(filename, sizeof(filename), "~/mydebuglog/logdata_%Y-%m-%d_%H:%M:%S.log", ts);
+		strftime(filename, sizeof(filename), "logdata_%Y-%m-%d_%H:%M:%S.log", ts);
 
 		logFlags.fp = fopen(filename, "w");
 		if(logFlags.fp == NULL){
@@ -267,3 +266,13 @@ void log_config(const char* configFileName)
 	}
 
 }
+
+
+void close_log_file(void)
+{
+	if(logFlags.fp != NULL){
+		fclose(logFlags.fp);
+		logFlags.fp = NULL;
+	}
+}
+
