@@ -47,7 +47,7 @@ Name:	debuglog.c
 *******************************************************
 *  Circumstances of programs
 *******************************************************
-Date: 1/8/2017
+Date: 1/9/2017
 
    The programs compile and build the library successfully. 
    A set of test programs is located in the test directory. 
@@ -106,8 +106,11 @@ the cache, and include it in the searchable library path.
    in the directories specified on the command line, in the file /etc/ld.so.conf, and in 
    the trusted directories (/lib and /usr/lib).
 
-5. Set the LD_LIBRARY_PATH
+5. Set the LD_LIBRARY_PATH (may only need to do this the first time library is built)
    % export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+6. Restart bash 
+   % source ~/.bashrc
 
   
 
@@ -126,5 +129,10 @@ To clean the files: make clean
 2. Parsing the configuration file is fairly simple.
    Might want to feature that allows the configuration
    file to be XML or JSON.
+
+   Allow user to have comments in configuration file.
+
+
+3. Add comments for each function definition.
 
 

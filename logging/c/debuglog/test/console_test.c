@@ -5,6 +5,12 @@
 
 	 File log level is LOG_OFF. Generates no file output.
 
+	 Color display is turned on.
+
+	 Tests the following functions:
+      log_init, log_trace, log_debug, log_info, log_warn,
+      log_error, log_fatal
+
 
 */
 
@@ -37,7 +43,9 @@ int main(void)
 {
 	fprintf(stderr, "\n\n=====  Testing Console Log Level, Display Color On  =====\n\n");
 	LogLevel level;
+
 	for(level = LOG_TRACE; level <= LOG_OFF; ++level){
+		// 1 turns on color display, 0 turns off color display
 		log_init(level, LOG_OFF, 1);
 		test_levels(level, (int)LOG_OFF-(int)level);
 	}

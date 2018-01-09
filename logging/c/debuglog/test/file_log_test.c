@@ -11,6 +11,9 @@
 	 This test will create 6 files. No file should
 	 be created for the LOG_OFF file level.
 
+	 Tests the following functions:
+        log_init, log_trace, log_debug, log_info, log_warn,
+        log_error, log_fatal, close_log_file
 
 */
 

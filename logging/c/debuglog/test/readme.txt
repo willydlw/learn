@@ -24,6 +24,10 @@ Name: console_test.c
       Console output designed to easily confirm each
       level produces the correct messages.
 
+      Tests the following functions:
+      log_init, log_trace, log_debug, log_info, log_warn,
+      log_error, log_fatal
+
 Name:	file_log_test.c
    
       Tests all file logging levels with color
@@ -40,15 +44,35 @@ Name:	file_log_test.c
       Six different files are created, one for each 
       logging level that produces output. 
 
+      Tests the following functions:
+        log_init, log_trace, log_debug, log_info, log_warn,
+        log_error, log_fatal, close_log_file
+
+
+
+Name: parse_config_test.c
+
+      Uses the file configTest.txt to set log flags:
+      consoleLevel, fileLevel, colorDisplay
+
+      Uses a non-existent file to test consequences
+      of specifying a file that cannot be opened and
+      use of default settings.
+
+      Tests the following functions:
+          log_config, get_console_level,
+          get_file_level, close_log_file
+
+
 *******************************************************
 *  Circumstances of programs
 *******************************************************
-Date: 1/8/2017
+Date: 1/9/2017
 
    The programs compile and link to the debuglog 
    library successfully. 
    
-   Both of the above test program results indicate the
+   All of the above test program results indicate the
    debuglog functions are working as expected. 
    
    The programs are developed and tested on Ubuntu 16.04,
@@ -68,6 +92,7 @@ Instructions:
 
 	console_test.c
 	file_log_test.c
+  parse_config_test.c
 	Makefile
 	readme.txt
 	
@@ -93,9 +118,12 @@ the cache, and include it in the searchable library path.
 
 
 
-===============  TODO ===============================
+*******************************************************
+*  To Do
+*******************************************************
 
-1. Create a program to test parsing the configuration 
-   file to initialize the logging levels/states
+
+
+
 
 

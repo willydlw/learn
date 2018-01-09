@@ -1,0 +1,5 @@
+consoleLogLevel		0
+fileLogLevel	    1
+displayColor		1
+
+

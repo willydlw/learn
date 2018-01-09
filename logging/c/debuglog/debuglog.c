@@ -1,3 +1,26 @@
+/* 
+* Copyright (c) 2017 willydlw
+*
+* Permission is hereby granted, free of charge, to any person obtaining a 
+* copy of this software and associated documentation files (the "Software"), 
+* to deal in the Software without restriction, including without limitation 
+* the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+* and/or sell copies of the Software, and to permit persons to whom the 
+* Software is furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included 
+* in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
+* OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+* THE SOFTWARE.
+*
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -5,17 +28,23 @@
 
 #include "debuglog.h"
 
-#define MAX_CHARACTERS_PER_WORD 32
 
 
-/* ==========     Static Global Variables     ========= */
+/* ================================================= 
+*
+*		   Static Variables/Constants    
+*
+*  ================================================= */ 
 
 static LogFlags logFlags;
 
+static const int MAX_CHARACTERS_PER_WORD = 32;
 
 static const  char* log_level_names[] = {	
 	"TRACE", "DEBUG", "INFO",  "WARN", "ERROR", "FATAL", "OFF"
 };
+
+
 
 /* colors reference: http://jafrog.com/2013/11/23/colors-in-terminal.html 
 	*
@@ -66,6 +95,13 @@ static const char* log_level_colors[] ={
 				"\x1b[1;34;1m"
 };
 
+
+
+/* ================================================= 
+*
+*			Function Definitions
+*
+*  ================================================= */
 
 void logit(int level, const char* file, const char* function, int line, const char *fmt, ...)
 {
@@ -152,6 +188,7 @@ int parse_configuration_file(const char* configFileName)
 		return 0;
 	}
 
+	
 	// read each line of the file
 	while(!feof(fp) && fscanf(fp, "%s%d", word, &ivalue) == 2){
 		
@@ -261,7 +298,11 @@ void log_config(const char* configFileName)
 		}
 		else{
 			logit(LOG_WARN, __FILE__, __func__, __LINE__,
-					"No configuration file, initializing log values with defaults");
+					"No configuration file, using default values\n"
+					"   consoleLevel %s, fileLevel %s, colorDisplay: %s",
+					log_level_names[logFlags.consoleLevel],
+					log_level_names[logFlags.fileLevel],
+					logFlags.displayColor? "on":"off");
 		}
 	}
 
@@ -276,3 +317,19 @@ void close_log_file(void)
 	}
 }
 
+
+LogLevel get_console_level(void)
+{
+	return logFlags.consoleLevel;
+}
+
+LogLevel get_file_level(void)
+{
+	return logFlags.fileLevel;
+}
+
+
+int color_display_state(void)
+{
+	return logFlags.displayColor;
+} 
