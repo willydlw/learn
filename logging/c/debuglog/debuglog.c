@@ -46,37 +46,39 @@ static const  char* log_level_names[] = {
 
 
 
+
+
 /* colors reference: http://jafrog.com/2013/11/23/colors-in-terminal.html 
-	*
-	*	ANSI escape codes:    
-	*		ASCII Hex \0x1B		ESC
-	*		ASCII Oct \033		ESC
-	*		Shell     \e
-	*
-	*   control sequence introducer ASCII ESC character code and a [
-	*	\0x1B[
-	*
-	*   followed by a list of instructions, separated by ;
-	*   [<PREFIX>];[<COLOR>];[<TEXT DECORATION>]
-	*
-	*   Color codes
-	*		Basic 8 colors 					30 .. 37
-	*		Basic "high contrast" colors 	90 .. 97
-	*		xterm-256 colors 				0 .. 255
-	*
-	*	If color code is prefixed by 38;5 it is interpreted as one of 256 colors
-	*	\e[38;5;91m will color following text purple while \e[91m will indicate bright red
-	*
-	*	Text decoration
-	*		Bold							1
-	*		Underscore						4
-	*		Background						3
-	*
-	*	m indicates the end of the control sequence so terminal will know not to interpret 
-	*     text after m as a color code
-	*
-	*   \x1b[0m means reset all attributes
-	*
+*
+*	ANSI escape codes:    
+*		ASCII Hex \0x1B		ESC
+*		ASCII Oct \033		ESC
+*		Shell     \e
+*
+*   control sequence introducer ASCII ESC character code and a [
+*	\0x1B[
+*
+*   followed by a list of instructions, separated by ;
+*   [<PREFIX>];[<COLOR>];[<TEXT DECORATION>]
+*
+*   Color codes
+*		Basic 8 colors 					30 .. 37
+*		Basic "high contrast" colors 	90 .. 97
+*		xterm-256 colors 				0 .. 255
+*
+*	If color code is prefixed by 38;5 it is interpreted as one of 256 colors
+*	\e[38;5;91m will color following text purple while \e[91m will indicate bright red
+*
+*	Text decoration
+*		Bold							1
+*		Underscore						4
+*		Background						3
+*
+*	m indicates the end of the control sequence so terminal will know not to interpret 
+*     text after m as a color code
+*
+*   \x1b[0m means reset all attributes
+*
 
 	reset		"\x1b[0m"
 	gray		"\x1b[0;30m"		bold 		"\x1b[1;30m"
@@ -103,7 +105,7 @@ static const char* log_level_colors[] ={
 *
 *  ================================================= */
 
-void logit(int level, const char* file, const char* function, int line, const char *fmt, ...)
+static void logit(int level, const char* file, const char* function, int line, const char *fmt, ...)
 {
 	time_t currentTime;
 	struct tm  *ts;
@@ -174,7 +176,7 @@ void logit(int level, const char* file, const char* function, int line, const ch
 }
 
 
-int parse_configuration_file(const char* configFileName)
+static int parse_configuration_file(const char* configFileName)
 {
 	FILE *fp;
 
