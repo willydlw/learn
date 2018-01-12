@@ -72,10 +72,15 @@
  *
  *		All messages are terminated with a new line.
  *    
- *    
- *  @author willydlw
- *  @date 10 Jan 2018
- *  @bug No known bugs.
+ * \par Message format
+ *
+ *  TimeStamp HH:MM:SS, Log Level name, File name, Function name, Line Number,
+ *  formatted message
+ * 
+ * 
+ * @author willydlw
+ * @date 10 Jan 2018
+ * @bug No known bugs.
  */
 
 #ifndef DEBUGLOG_H
@@ -112,7 +117,7 @@ extern "C"{
 	logit(LOG_OFF, __FILE__, __func__ ,__LINE__, __VA_ARGS__);
 
 
-/** define default values */
+/** default values */
 #define DEFAULT_CONSOLE_LEVEL LOG_INFO
 #define DEFAULT_FILE_LEVEL    LOG_OFF
 #define DEFAULT_COLOR_DISPLAY 0
@@ -191,30 +196,165 @@ void log_config(const char* configFileName);
 
 
 
-
+/** @brief 	Initializes the LogFlags data members.
+*
+*
+* @param[in]	consoleLevel	  console display log level
+* @param[in]	fileLogLevel	  save to file log level
+* @param[in]    colorDisplay      1 turns on console text color
+*								  0 turns off 
+*
+* @returns 	void		
+*
+* @note
+*	The LogFlags data members are set by passing the following
+*   integer values:
+*
+*	data member 		values
+*	
+*	fileLevel 		 	integer in range [0,6] 
+*	consoleLevel 	 	integer in range [0,6]
+*   displayColor     	0 for off, 1 for on
+*		
+*	For fileLevel and consoleLevel, the integer values 
+*   correspond to the LogLevel enumeration values for 
+*   [LOG_TRACE, LOG_OFF]
+*
+*	For values not in the range [LOG_TRACE, LOG_OFF],
+*   consoleLevel is set to DEFAULT_CONSOLE_LEVEL
+*   fileLevel    is set to DEFAULT_FILE_LEVEL
+*
+*   A LOG_WARN message is written when the default values are used.
+*/
 void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn);
 
-void set_flag_defaults(void);
-
-void set_display_color(int onOff);
-
-void set_file_level(int logLevel);
-
-void set_console_level(int logLevel);
 
 
-static int parse_configuration_file(const char* configFileName);
-
+/** @brief 	Closes the output log file
+*
+* @returns 	void		
+*/
 void close_log_file(void);
 
 
+
+/** @brief 	Method to query value stored in logFlags.consoleLevel
+*
+* @returns logFlags.consoleLevel value		
+*/
 LogLevel get_console_level(void);
 
+
+
+/** @brief 	Method to query value stored in logFlags.fileLevel
+*
+* @returns logFlags.fileLevel value		
+*/
 LogLevel get_file_level(void);
 
+
+
+/** @brief 	Method to query value stored in logFlags.colorDisplay
+*
+* @returns logFlags.colorDisplay value		
+*/
 int color_display_state(void);
 
 
+
+/** @brief 	sets logFlags.consoleLevel 
+*
+* @param[in]	logLevel 		valid range [LOG_TRACE, LOG_OFF]
+*
+* @returns 	void		
+*
+*/
+void set_console_level(int logLevel);
+
+
+
+/** @brief 	sets logFlags.colorDisplay on or off.
+*
+* @param[in]	onOff		  	  0 off, 1 on
+*
+* @returns 	void		
+*
+*/
+void set_display_color(int onOff);
+
+
+
+/** @brief 	sets the logFlags data members to default values.
+*
+* @returns 	void		
+*/
+void set_flag_defaults(void);
+
+
+
+/** @brief 	sets logFlags.fileLevel 
+*
+* @param[in]	logLevel 		valid range [LOG_TRACE, LOG_OFF]
+*
+* @returns 	void
+*
+* @note	Default Log File
+*  Also sets logFlags.fp as pointer to default output log file.
+*  Writes LOG_WARN level message when file cannot be opened.
+*	
+*/
+void set_file_level(int logLevel);
+
+
+
+/** @brief 	Parses configuration file for console log level,
+*			file log level, and color display state.
+*
+*
+* @param[in]	configFileName	  configuration file name to be read
+*
+* @returns 	0 if the configuration file cannot be opened
+*           1 if the configuration file was opened		
+*
+* @note
+*	The LogFlags data members are set by passing the following
+*   strings and integer values:
+*
+*	data member 	string 			values
+*	
+*	fileLevel 		"fileLevel"     integer in range [0,6]
+*	consoleLevel 	"consoleLevel" 	integer in range [0,6]
+*   displayColor    "displayColor"  0 for off, 1 for on
+*		
+*	For fileLevel and consoleLevel, the integer values 
+*   correspond to the LogLevel enumeration values for 
+*   [LOG_TRACE, LOG_OFF]
+*
+*	The following default settings are used if the configuration
+*   file cannot be opened or if the file does not contain a
+*   valid string for the data members listed above. 
+*
+*   A LOG_WARN message is written when the file contains an
+*   unrecognized string.
+*/
+int parse_configuration_file(const char* configFileName);
+
+
+
+/** @brief 	Controls messages written to stderr and output log file.
+*
+*
+* @param[in]	level 			message log level
+* @param[in]	file 			source code file name
+* @param[in]    function 		souce code function name
+* @param[in]    line 			source code line number
+* @param[in]    fmt 			message format string
+*
+* @returns 	void
+*           
+* @note Adds time stamp HH:MM:SS to start of each message.
+*		
+*/
 void logit(int level, const char* file, const char* function, 
 			int line, const char *fmt, ...);
 

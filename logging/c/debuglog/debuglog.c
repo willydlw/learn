@@ -99,13 +99,16 @@ static const char* log_level_colors[] ={
 
 
 
+
+
+
 /* ================================================= 
 *
 *			Function Definitions
 *
 *  ================================================= */
 
-static void logit(int level, const char* file, const char* function, int line, const char *fmt, ...)
+void logit(int level, const char* file, const char* function, int line, const char *fmt, ...)
 {
 	time_t currentTime;
 	struct tm  *ts;
@@ -176,7 +179,46 @@ static void logit(int level, const char* file, const char* function, int line, c
 }
 
 
-static int parse_configuration_file(const char* configFileName)
+
+void log_config(const char* configFileName)
+{
+
+	/** populate struct values */
+	set_flag_defaults();
+
+	// parse configuration file if it exists
+	if(configFileName != NULL){
+		if(parse_configuration_file(configFileName)){
+			logit(LOG_INFO, __FILE__, __func__, __LINE__,
+					"Configuring logger from %s", configFileName);
+		}
+		else{
+			logit(LOG_WARN, __FILE__, __func__, __LINE__,
+					"No configuration file, using default values\n"
+					"   consoleLevel %s, fileLevel %s, colorDisplay: %s",
+					log_level_names[logFlags.consoleLevel],
+					log_level_names[logFlags.fileLevel],
+					logFlags.displayColor? "on":"off");
+		}
+	}
+
+}
+
+
+
+void set_flag_defaults(void)
+{
+	/** populate struct values */
+	logFlags.fp = NULL;
+	logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
+	logFlags.fileLevel = DEFAULT_FILE_LEVEL;
+	logFlags.displayColor = 0;
+
+}
+
+
+
+int parse_configuration_file(const char* configFileName)
 {
 	FILE *fp;
 
@@ -185,8 +227,8 @@ static int parse_configuration_file(const char* configFileName)
 
 	fp = fopen(configFileName, "r");
 	if(fp == NULL){
-		fprintf(stderr, "%s %s %d, %s failed to open\n", __FILE__, 
-				__func__, __LINE__, configFileName);
+		logit(LOG_WARN, __FILE__, __func__, __LINE__, 
+				"failed to open %s\n", configFileName);
 		return 0;
 	}
 
@@ -203,8 +245,8 @@ static int parse_configuration_file(const char* configFileName)
 		else if(strcmp(word, "displayColor") == 0){
 			logFlags.displayColor = ivalue == 0? 0:1;
 		}
-		else{
-			logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __func__,
+		else{ // handle unknown strings
+			logit(LOG_WARN, __FILE__, __func__,
 					__LINE__, "ignoring: %s, ignoring: %d\n", word, ivalue); 
 		}
 	}
@@ -214,6 +256,8 @@ static int parse_configuration_file(const char* configFileName)
 	return 1;
 }
 
+
+
 void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn)
 {
 	set_console_level(consoleLogLevel);
@@ -222,32 +266,17 @@ void log_init(int consoleLogLevel, int fileLogLevel, int colorDisplayOn)
 }
 
 
-void set_flag_defaults(void)
-{
-	/** populate struct values */
-	logFlags.fp = NULL;
-	logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
-	logFlags.fileLevel = DEFAULT_FILE_LEVEL;
-	logFlags.displayColor = 0;
-
-}
-
-
-void set_display_color(int onOff)
-{
-	logFlags.displayColor = onOff == 0? 0:1;
-}
 
 
 void set_console_level(int logLevel)
 {
-	if(logLevel <= LOG_OFF){
+	if(logLevel >= LOG_TRACE && logLevel <= LOG_OFF){
 		logFlags.consoleLevel = logLevel;
 	}
 	else{
 		
 		logFlags.consoleLevel = DEFAULT_CONSOLE_LEVEL;
-		logit(DEFAULT_CONSOLE_LEVEL, __FILE__, __func__, __LINE__,
+		logit(LOG_WARN, __FILE__, __func__, __LINE__,
 				"invalid console level: %d, using default %s", 
 				logLevel, log_level_names[DEFAULT_CONSOLE_LEVEL]);
 	}
@@ -286,29 +315,14 @@ void set_file_level(int logLevel)
 }
 
 
-void log_config(const char* configFileName)
+
+
+void set_display_color(int onOff)
 {
-
-	/** populate struct values */
-	set_flag_defaults();
-
-	// parse configuration file if it exists
-	if(configFileName != NULL){
-		if(parse_configuration_file(configFileName)){
-			logit(LOG_INFO, __FILE__, __func__, __LINE__,
-					"Configuring logger from %s", configFileName);
-		}
-		else{
-			logit(LOG_WARN, __FILE__, __func__, __LINE__,
-					"No configuration file, using default values\n"
-					"   consoleLevel %s, fileLevel %s, colorDisplay: %s",
-					log_level_names[logFlags.consoleLevel],
-					log_level_names[logFlags.fileLevel],
-					logFlags.displayColor? "on":"off");
-		}
-	}
-
+	logFlags.displayColor = onOff == 0? 0:1;
 }
+
+
 
 
 void close_log_file(void)
@@ -320,15 +334,20 @@ void close_log_file(void)
 }
 
 
+
 LogLevel get_console_level(void)
 {
 	return logFlags.consoleLevel;
 }
 
+
+
 LogLevel get_file_level(void)
 {
 	return logFlags.fileLevel;
 }
+
+
 
 
 int color_display_state(void)
