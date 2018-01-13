@@ -19,7 +19,7 @@
 #ifndef COMMUNICATION_STATE_H
 #define COMMUNICATION_STATE_H
 
-
+#include <stdint.h>
 #include <sys/select.h>					// fd_set
 
 /* ==========     Preprocessor Directives     ==========*/
@@ -57,6 +57,7 @@ extern const char* stopCommand;
 extern const char* ackResponse;					// acknowledge message received, command implemented
 extern const char* nackResponse;				// nack - not acknowledge
 extern const char* helloMessage;				// confirms connection
+extern const char* helloMessageHEX;				// hexadecimal string of helloMessage character values
 
 
 
@@ -117,11 +118,12 @@ bool valid_sensor_id(uint8_t id);
 
 void process_sensor_data_received(uint16_t theData);
 
-void print_array_contents_as_hex(uint8_t* buf, ssize_t buflength);
+void convert_array_to_hex_string(char* destination, ssize_t dlength, 
+								const uint8_t* source, ssize_t slength);
 
-void print_array_contents_as_char(char* buf, ssize_t buflength);
 
 
+void process_unrecognized_read_state_message(const uint8_t *responseData, ssize_t rlength);
 
 
 #endif

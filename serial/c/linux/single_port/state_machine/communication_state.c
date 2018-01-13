@@ -57,6 +57,7 @@ const char* nackResponse = "<NCK>";
     the connection has been made.
 **/
 const char* helloMessage = "<HLO>";
+const char* helloMessageHEX = "3C 48 4C 4F 3E";
 
 
 static const uint8_t start_marker = '<';
@@ -375,22 +376,11 @@ void process_sensor_data_received(uint16_t theData)
 }
 
 
-void print_array_contents_as_hex(uint8_t* buf, ssize_t buflength)
+void convert_array_to_hex_string(char* destination, ssize_t dlength, const uint8_t* source, ssize_t slength)
 {
 	ssize_t i;
-	for(i = 0; i < buflength-1; ++i){
-		fprintf(stderr, "buf[%ld] %#x,", i, buf[i]);
+	memset(destination, 0, dlength);
+	for(i = 0; i < slength; ++i){
+		sprintf(&destination[i*3], "%02x ", source[i]); 
 	}
-
-	fprintf(stderr, "buf[%ld] %#x\n", i, buf[i]);
-}
-
-void print_array_contents_as_char(char* buf, ssize_t buflength)
-{
-	ssize_t i;
-	for(i = 0; i < buflength-1; ++i){
-		fprintf(stderr, "buf[%ld] %c,", i, buf[i]);
-	}
-
-	fprintf(stderr, "buf[%ld] %c\n", i, buf[i]);
 }

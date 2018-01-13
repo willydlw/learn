@@ -22,6 +22,7 @@
 #include <termios.h>        // POSIX terminal control definitions
 #include <sys/ioctl.h>
 
+#include <debuglog.h>
 
 #include "serial.h"
 
@@ -71,19 +72,19 @@ int serial_init(const char *serial_device_name, int baud_rate)
     serial_port_fd = open(serial_device_name, O_RDWR | O_NOCTTY | O_NDELAY);
     if(serial_port_fd < 0)             // open returns -1 on error
     {
-        fprintf(stderr, "error: %s, serial port not open, errno -%s\n", 
-                    __FUNCTION__, strerror(errno));
-
-        fprintf(stderr, "serial device name: %s\n", serial_device_name);
+        log_fatal("serial port not open, errno - %s", strerror(errno));
+        log_fatal("serial device name: %s", serial_device_name);
         return -1;
     }
 
-    else    fprintf(stderr, "serial port fd = %d\n", serial_port_fd);
+    else{
+        log_info("serial port fd = %d", serial_port_fd);
+    }   
 
 
     // Get current serial port settings
     if(tcgetattr(serial_port_fd, &terminalSettings) < 0){
-        perror("initialize_serial: could not get current serial port settings");
+        log_fatal("get current serial port settings, %s", strerror(errno));
         return -1;
     }
 
@@ -91,10 +92,24 @@ int serial_init(const char *serial_device_name, int baud_rate)
     // set baud rate
     bspeed = set_baud_speed(baud_rate);
     if(bspeed != -1){
-        cfsetispeed(&terminalSettings, bspeed);
-        cfsetospeed(&terminalSettings, bspeed);
+        int setspeed;
+
+        setspeed = cfsetispeed(&terminalSettings, bspeed);
+        if(setspeed != bspeed){
+            log_fatal("cfsetispeed set speed at %d, instead of %d",
+                        setspeed, bspeed);
+            return -1;
+        }
+
+        setspeed = cfsetospeed(&terminalSettings, bspeed);
+        if(setspeed != bspeed){
+            log_fatal("cfsetospeed set speed at %d, instead of %d",
+                        setspeed, bspeed);
+            return -1;
+        }
     }
     else{
+        // no logging here, log message generated in set_baud_speed
         return -1;
     }
 
@@ -166,7 +181,7 @@ int serial_init(const char *serial_device_name, int baud_rate)
 
     // Load new settings
     if( tcsetattr(serial_port_fd, TCSAFLUSH, &terminalSettings) < 0){
-        perror("init_serialport: Couldn't set term attributes");
+        log_fatal("did not set term attributes, errno %s", strerror(errno));
         return -1;
     }
 
@@ -181,11 +196,12 @@ int serial_init(const char *serial_device_name, int baud_rate)
        May need to experiment with sleep time.
     */
     usleep(10000);                                  // 10 ms
-    tcflush(serial_port_fd, TCIOFLUSH);
+    if( tcflush(serial_port_fd, TCIOFLUSH) != 0){
+        log_warn("tcflush failed, errno %s", strerror(errno));
+    }
 
     return serial_port_fd;
 }
-
 
 
 

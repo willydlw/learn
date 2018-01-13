@@ -97,6 +97,7 @@
 
 #include "communication_state.h"
 #include "serial.h"
+#include <debuglog.h>
 
 
 /*============== Global Variable Declarations =============================*/
@@ -230,15 +231,21 @@ int main(){
     int default_comm_read_state_count = 0;
     int default_comm_write_state_count = 0;
 
-
+    // initialize logging levels
+    // console level, file level, color on
+    log_init(LOG_TRACE, LOG_INFO, 1);
             
     // initialize serial port connection
 	fd = serial_init(serial_device_path, baudrate);
 
 	if(fd == -1){
-		puts("serial port did not open");
+		log_fatal("serial port did not open");
 		return -1;
 	}
+
+    log_info("serial port opened, %s, baud rate: %d, fd: %d", 
+                serial_device_path, baudrate, fd);
+
 
     // pselect requires an argument that is 1 more than
     // the largest file descriptor value
@@ -253,7 +260,7 @@ int main(){
         taken by a process on receipt of a specific signal.
     */
     if(sigaction(SIGTERM, &saterm, NULL) < 0){
-        perror("sigaction saterm ");
+        log_fatal("sigaction saterm, errno: %s", strerror(errno));
         return 1;
     }
     
@@ -262,7 +269,7 @@ int main(){
     memset(&saint, 0, sizeof(saint));
     saint.sa_handler = signal_handler_term;
     if(sigaction(SIGINT, &saint, NULL) < 0){
-        perror("sigaction saint");
+        log_fatal("sigaction saint, errno: %s", strerror(errno));
         return 1;
     }
 
@@ -275,9 +282,10 @@ int main(){
 
     // set as blocking so that pselect can receive event
     if(sigprocmask(SIG_BLOCK, &sigmask, NULL) < 0){
-        perror("sigprocmask");
+        log_fatal("sigprocmask, errno: %s", strerror(errno));
         return 1;
     }
+
 
 
     // main processing loop
@@ -325,14 +333,14 @@ int main(){
             fprintf(stderr, "\nnumber of read pending, selectrfds: %d\n", selectrfds);
 
             if(exit_request){
-                fprintf(stderr, "received exit request\n");
+                log_info("received exit request");
                 break;
             }
 
             errorCondition = check_select_return_value(selectrfds, errno, &read_select_zero_count);
 
             // debug 
-            fprintf(stderr, "commReadState: %d, %s\n", commReadState, 
+            log_debug("commReadState: %d, %s", commReadState, 
                     debug_comm_read_state_string[commReadState]);
 
             if(errorCondition == SUCCESS){
@@ -358,25 +366,13 @@ int main(){
                                 case WAIT_FOR_CONNECTION:
                                     // received hello?
                                     if(strcmp((const char*)responseData, helloMessage) == 0){
-                                        fprintf(stderr, "Received Ready Signal\n");
+                                        log_info("received ready Signal\n");
                                         commReadState = NO_READ;
                                         commWriteState = SEND_READY_SIGNAL;
                                     }
                                     else{
-                                        fprintf(stderr, "warning: function: %s, line: %d, "
-                                                "commReadState: %s, expected: %s, ",
-                                                __FUNCTION__, __LINE__, 
-                                                debug_comm_read_state_string[commReadState],
-                                                helloMessage);
-
-                                        fprintf(stderr, "received: ");
-                                        print_array_contents_as_hex(responseData, 
-                                                                        strlen((char*)responseData));
-
-                                        fprintf(stderr, "received: ");
-                                        print_array_contents_as_char((char*)responseData, 
-                                                                        strlen((char*)responseData));
-
+                                        process_unrecognized_read_state_message(responseData, 
+                                            strlen((const char*)responseData));
                                     }
                                 break;
 
@@ -388,20 +384,8 @@ int main(){
                                         commReadState = READ_SENSOR;
                                     }
                                     else{
-                                        fprintf(stderr, "warning: function: %s, line: %d, "
-                                                "commReadState: %s, expected: %s, ",
-                                                __FUNCTION__, __LINE__, 
-                                                debug_comm_read_state_string[commReadState],
-                                                ackResponse);
-
-                                        fprintf(stderr, "received: ");
-                                        print_array_contents_as_hex(responseData, 
-                                                                        strlen((char*)responseData));
-
-                                        fprintf(stderr, "received: ");
-                                        print_array_contents_as_char((char*)responseData, 
-                                                                        strlen((char*)responseData));
-
+                                        process_unrecognized_read_state_message(responseData, 
+                                            strlen((const char*)responseData));
                                     }
                                 break;
 
