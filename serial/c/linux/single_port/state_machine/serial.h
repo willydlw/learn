@@ -82,7 +82,7 @@ int serial_init(const char *serial_device_name, int baud_rate);
 *
 * OUTPUTS:
 *   Return:
-*       type:           int            
+*       type:           speed_t            
 *       values:
 *           success     baud speed
 *           failure     -1 when parameter baud_rate is not a 
@@ -93,7 +93,7 @@ int serial_init(const char *serial_device_name, int baud_rate);
 *       Error messages are sent to stderr stream
 *
 */
-int  set_baud_speed(int baud_rate);
+speed_t  set_baud_speed(int baud_rate);
 
 
 /**

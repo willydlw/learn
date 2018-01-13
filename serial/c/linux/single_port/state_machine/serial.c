@@ -13,6 +13,10 @@
 *
 */
 
+// must be defined before including header files
+// http://man7.org/linux/man-pages/man2/nanosleep.2.html
+#define  _POSIX_C_SOURCE 199309L         // nanosleep is not IS0-C
+
 
 #include <stdio.h>     
 #include <string.h>         // strerror 
@@ -20,11 +24,14 @@
 #include <fcntl.h>          // File control definitions
 #include <errno.h>          // Error number definitions
 #include <termios.h>        // POSIX terminal control definitions
+#include <time.h>           // nanosleep
 #include <sys/ioctl.h>
 
 #include <debuglog.h>
 
 #include "serial.h"
+
+
 
 
 /**
@@ -65,8 +72,13 @@
 int serial_init(const char *serial_device_name, int baud_rate)
 {
     int serial_port_fd;
-    int bspeed; 
+    speed_t bspeed; 
     struct termios terminalSettings;
+
+    int millisec = 10;      // length of time to sleep, in milliseconds
+    struct timespec sleepTime = {0};
+    sleepTime.tv_sec = 0;
+    sleepTime.tv_nsec = millisec * 1000000L;
 
     // Open the serial port nonblocking (read returns immediately)
     serial_port_fd = open(serial_device_name, O_RDWR | O_NOCTTY | O_NDELAY);
@@ -91,18 +103,18 @@ int serial_init(const char *serial_device_name, int baud_rate)
 
     // set baud rate
     bspeed = set_baud_speed(baud_rate);
-    if(bspeed != -1){
+    if(bspeed != 0){
         int setspeed;
 
         setspeed = cfsetispeed(&terminalSettings, bspeed);
-        if(setspeed != bspeed){
+        if(setspeed != (int)bspeed){
             log_fatal("cfsetispeed set speed at %d, instead of %d",
                         setspeed, bspeed);
             return -1;
         }
 
         setspeed = cfsetospeed(&terminalSettings, bspeed);
-        if(setspeed != bspeed){
+        if(setspeed != (int)bspeed){
             log_fatal("cfsetospeed set speed at %d, instead of %d",
                         setspeed, bspeed);
             return -1;
@@ -122,8 +134,8 @@ int serial_init(const char *serial_device_name, int baud_rate)
     // no input parity check, don't strip high bit off,
     // no XON/XOFF software flow control
     //
-    terminalSettings.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
-                         INLCR | PARMRK | INPCK | ISTRIP | IXON);
+    terminalSettings.c_iflag &= (unsigned int)(~(IGNBRK | BRKINT | ICRNL |
+                         INLCR | PARMRK | INPCK | ISTRIP | IXON));
 
 
     //
@@ -144,7 +156,8 @@ int serial_init(const char *serial_device_name, int baud_rate)
      // echo off, echo newline off, canonical mode off, 
      // extended input processing off, signal chars off
      //
-     terminalSettings.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+     terminalSettings.c_lflag &= (unsigned int)(~(ECHO | ECHONL | ICANON 
+                                    | IEXTEN | ISIG));
 
      //
      // Turn off character processing
@@ -152,7 +165,7 @@ int serial_init(const char *serial_device_name, int baud_rate)
      // clear current char size mask, no parity checking,
      // no output processing, force 8 bit input
      //
-     terminalSettings.c_cflag &= ~(CSIZE | PARENB);
+     terminalSettings.c_cflag &= (unsigned int)(~(CSIZE | PARENB));
      terminalSettings.c_cflag |= CS8;
 
 
@@ -195,7 +208,9 @@ int serial_init(const char *serial_device_name, int baud_rate)
 
        May need to experiment with sleep time.
     */
-    usleep(10000);                                  // 10 ms
+    nanosleep(&sleepTime, (struct timespec *)NULL);
+
+
     if( tcflush(serial_port_fd, TCIOFLUSH) != 0){
         log_warn("tcflush failed, errno %s", strerror(errno));
     }
@@ -229,7 +244,7 @@ int serial_init(const char *serial_device_name, int baud_rate)
 *       Error messages are sent to stderr stream
 *
 */
-int  set_baud_speed(int baud_rate)
+speed_t  set_baud_speed(int baud_rate)
 {
     switch(baud_rate)
     {
@@ -246,9 +261,8 @@ int  set_baud_speed(int baud_rate)
     case 115200:
         return B115200;
     default:
-        fprintf(stderr, "error: %s, baud rate %d not supported\n", 
-                    __FUNCTION__, baud_rate);
-        return -1;
+        log_fatal("baud rate %d not supported", baud_rate);
+        return 0;
     }
 }
 
@@ -343,8 +357,14 @@ ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until,
             return READ_FAILURE;                      // read failed
         }
 
-        if( n == 0 ) {                      
-            usleep( 1 * 1000 );             // wait 1 msec, try again
+        if( n == 0 ) {  
+
+            int millisec = 1;      // length of time to sleep, in milliseconds
+            struct timespec sleepTime = {0};
+            sleepTime.tv_sec = 0;
+            sleepTime.tv_nsec = millisec * 1000000L;                    
+            nanosleep(&sleepTime, (struct timespec*)NULL);  // wait 1 msec, try again
+
             timeout--;
             if( timeout==0 ){
                 return READ_TIMEOUT;
