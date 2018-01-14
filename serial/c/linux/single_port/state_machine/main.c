@@ -1,11 +1,35 @@
-/****************************************************************
-* FILENAME:     main.c
+/* 
+* Copyright (c) 2017 willydlw
 *
-* DESCRIPTION:  
-*   Program controls communication flow with another program.
+* Permission is hereby granted, free of charge, to any person obtaining a 
+* copy of this software and associated documentation files (the "Software"), 
+* to deal in the Software without restriction, including without limitation 
+* the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+* and/or sell copies of the Software, and to permit persons to whom the 
+* Software is furnished to do so, subject to the following conditions:
 *
-*   The other program's primary purpose is to send data to 
-*   this program. 
+* The above copyright notice and this permission notice shall be included 
+* in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
+* OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+* THE SOFTWARE.
+*
+*/
+
+
+/**
+* @file main.c
+*
+* @brief This program is meant as a generic framework for serial communication
+*        with another program. This program's purpose is to receive data
+*        from the other program and prepare it for further processing.
+*
+*
 *
 *   Communication method: serial
 *       Default device path:  /dev/ttyACM0
@@ -14,9 +38,10 @@
 *   Signal handling is implemented for SIGINT and SIGTERM
 *       ctrl+c produces the SIGINT
 *
-*       Either of these signals breaks out of the infinite
-*       while loop and properly closes connections, and 
-*       writes any end of program data that should be recorded.       
+*       Either of these signals causes an exit from the main
+*       while loop, so that any connections may be closed, and 
+*       any end of program data is recorded before the program
+*       terminates.       
 *
 *       signal handling references:
 *           http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show
@@ -25,6 +50,7 @@
 *
 *   Order of operations:
 *
+*       initialize debug logging struct
 *       initialize serial communication
 *       register the signal handlers
 *       set intial state to WAIT_FOR_CONNECTION
@@ -66,22 +92,16 @@
 *       close serial connection
 *       
 *
-* NOTE: Program contains a number of debug messages that are written to
-*       the standard error stream. This allows the user to see every step
-*       of the program flow to ensure messages are correctly received and
+* @note Program contains a number of debug logging messages that are written 
+*       to the standard error stream and an output file. This allows the user 
+*       to watch the program flow to ensure messages are correctly received and
 *       indicate all error conditions.
 *
 *
-* PURPOSE: This program is meant as a generic framework for serial communication
-*        with another program. This program's purpose is to receive data
-*        from the other program and prepare it for further processing.
+* @author willydlw
+* @date 14 Jan 2018
+* @bugs No known bugs
 *
-*
-* AUTHOR:   Diane Williams        START DATE: 1/4/2018
-*
-* CHANGES:
-*
-* DATE          WHO        DETAIL
 *
 */
 
@@ -105,7 +125,7 @@
 /*============== Global Variable Declarations =============================*/
 
 
-/** You have to be careful about the fact that access to a single datum is not necessarily atomic. 
+/* You have to be careful about the fact that access to a single datum is not necessarily atomic. 
     This means that it can take more than one instruction to read or write a single object. 
     In such cases, a signal handler might be invoked in the middle of reading or writing the object.
 
@@ -130,35 +150,30 @@ static volatile sig_atomic_t exit_request = 0;
 
 
 /**
-* NAME : void signal_handler_term(int sig)
+* @brief Sets exit request flag to 1 when SIGINT is received
+*        or when SIGTERM is raised
 *
-* DESCRIPTION: Sets exit request flag to 1 when SIGINT is received
-*              or when SIGTERM is raised
+* @param[in]    sig                       signal passed from operating system 
 *
-* INPUTS: 
-*   Parameters:
-*       int             sig               signal passed from operating system 
-*
-* OUTPUTS:
-*   Globals:
+* @param[out]
 *       sig_atomic_t    exit_request      flag set to 1 when signal received
+*                                         Defined as global
 *
-*   Return:
-*       type:           void           
+* @return void       
 *
 *      
-* NOTES:
+* @note
 *       Function is not directly invoked. Operating system calls it when
 *       the registered signal is received. Signals are software interrupts.
 *
 */
 static void signal_handler_term(int sig)
 {
-     /* psignal used for debugging purposes
+    /* psignal used for debugging purposes
        debugging console output lets us know this function was
        triggered. Prints the string message and a string for the
        variable sig
-       */
+    */
     psignal(sig, "signal_handler_term");
     if(sig == SIGINT || sig == SIGTERM){
         exit_request = 1;
@@ -175,12 +190,12 @@ int main(){
     sigset_t empty_mask;
     
 
-    /** struct sigaction{
-    void (*sa_handler)(int);
-    void (*sa_sigaction)(int, siginfo_t *, void*);
-    sigset_t    sa_mask;
-    int     sa_flags;
-    void (*sa_restorer)(void);
+    /* struct sigaction{
+        void (*sa_handler)(int);
+        void (*sa_sigaction)(int, siginfo_t *, void*);
+        sigset_t    sa_mask;
+        int     sa_flags;
+        void (*sa_restorer)(void);
     }
     */
     struct sigaction saterm;            // SIGTERM raised by this program or another
@@ -313,7 +328,7 @@ int main(){
         */
         
 
-        /** must call FD_ZERO and FD_SET every time through loop.
+        /*  must call FD_ZERO and FD_SET every time through loop.
         *
         *   When select returns, it has updated the sets to show which file
         *   descriptors are ready for read/write/exception. All other flags
