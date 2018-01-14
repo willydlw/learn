@@ -19,8 +19,12 @@
 #ifndef COMMUNICATION_STATE_H
 #define COMMUNICATION_STATE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <sys/select.h>					// fd_set
+
+#include <debuglog.h>
+
 
 /* ==========     Preprocessor Directives     ==========*/
 
@@ -123,7 +127,8 @@ void convert_array_to_hex_string(char* destination, ssize_t dlength,
 
 
 
-void process_unrecognized_read_state_message(const uint8_t *responseData, ssize_t rlength);
+void process_read_state_error_message(CommReadState commReadState, 
+	const uint8_t *responseData, ssize_t rlength);
 
 
 #endif
