@@ -85,6 +85,8 @@
 *
 */
 
+#define _SVID_SOURCE || _BSD_SOURCE     // psignal
+
 
 #include <errno.h>
 #include <signal.h>
@@ -371,21 +373,28 @@ int main(){
                                         commWriteState = SEND_READY_SIGNAL;
                                     }
                                     else{
-                                        process_unrecognized_read_state_message(responseData, 
-                                            strlen((const char*)responseData));
+                                        process_read_state_error_message(commReadState,
+                                            responseData, (ssize_t)strlen((const char*)responseData));
                                     }
                                 break;
 
                                 case READ_ACK:
                                     // received <ACK>?
                                     if(strcmp((const char*)responseData, ackResponse) == 0){
-                                        fprintf(stderr, "Received ACK\n");
+                                        log_info("received ACK\n");
                                         commWriteState = NO_WRITE;     // redundant
                                         commReadState = READ_SENSOR;
                                     }
                                     else{
-                                        process_unrecognized_read_state_message(responseData, 
-                                            strlen((const char*)responseData));
+                                        // writing message here to indicate source of
+                                        // warning
+                                        log_warn("generated message below");
+                                        // to avoid repeating the same code, this function
+                                        // was created. However, when it logs the message,
+                                        // it will refer to that function and not the source
+                                        // here.
+                                        process_read_state_error_message(commReadState,
+                                            responseData, (ssize_t)strlen((const char*)responseData));
                                     }
                                 break;
 
@@ -399,33 +408,22 @@ int main(){
                                             (((uint16_t)responseData[2]) << 8U) |
                                             ((uint16_t)responseData[1] & 0xFF) );
                                         
-                                        // here is where code needs to be added to process 
-                                        // the new sensor data
                                         process_sensor_data_received(sensorData);
                                     }
                                     else{
-                                        fprintf(stderr, "error: function: %s, line: %d, "
-                                        "SENSOR_ID_MISMATCH, commState: %d, expected %d\n"
-                                        "not processing responseData: ",
-                                        __FUNCTION__, __LINE__, commReadState, sensorId);
-
-                                        print_array_contents_as_hex(responseData, 
-                                                                        strlen((char*)responseData));
+                                        log_warn("generated message below");
+                                        process_read_state_error_message(commReadState,
+                                            responseData, (ssize_t)strlen((const char*)responseData));
 
                                         ++sensor_id_mismatch_count;
-
                                     }
                                    
                                 break;
 
                             default:
-                                fprintf(stderr, "warning: function: %s, line: %d, "
-                                        "entered default case, commReadState: %d, "
-                                        "not processing responseData: ", 
-                                        __FUNCTION__, __LINE__, commReadState );
-
-                                print_array_contents_as_hex(responseData, 
-                                                                    strlen((char*)responseData));
+                                log_warn("generated message below");
+                                process_read_state_error_message(commReadState,
+                                            responseData, (ssize_t)strlen((const char*)responseData));
 
                                 ++default_comm_read_state_count;
                                         
@@ -435,11 +433,12 @@ int main(){
                 } // end if bytes_read > 0
             }
             else{
-                fprintf(stderr, "error: function: %s, line: %d, errorState: %s\n",
-                        __FUNCTION__, __LINE__, debug_error_condition_string[errorCondition]);
+
+                log_error("select return value indicates error condition: %s",
+                            debug_error_condition_string[errorCondition]);
                 
                 if(errorCondition == SELECT_FAILURE){
-                    fprintf(stderr, "breaking out of while(exit_request) loop\n");
+                    log_fatal("breaking out of while(exit_request) loop");
                     break;
                 }
 
@@ -458,14 +457,16 @@ int main(){
             timeout.tv_nsec = 0;                    // nanoseconds
 
             selectwfds = pselect(max_fd, NULL, &writefds, NULL, &timeout, &empty_mask);
-            fprintf(stderr, "\nnumber of write pending, selectwfds: %d\n", selectwfds);
+
+            // debug
+            log_trace("\nnumber of write pending, selectwfds: %d", selectwfds);
 
             // debug 
-            fprintf(stderr, "commWriteState: %d, %s\n", commWriteState,
+            log_trace("commWriteState: %d, %s\n", commWriteState,
                                 debug_comm_write_state_string[commWriteState]);
 
             if(exit_request){
-                fprintf(stderr, "received exit request\n");
+                log_info("received exit request");
                 break;
             }
 
@@ -477,8 +478,8 @@ int main(){
                 writeError = write_message(fd, writefds, commWriteState);
 
                 if(writeError != SUCCESS){
-                    fprintf(stderr, "error: function: %s, line: %d, writeError: %s\n",
-                        __FUNCTION__, __LINE__, debug_error_condition_string[writeError] );
+                    log_error("writeError: %s\n",
+                                debug_error_condition_string[writeError] );
                 }
                 else{
 
@@ -496,8 +497,7 @@ int main(){
                     case SEND_RESET:
                     case SEND_STOP: 
                         // Note: SEND_RESET, SEND_STOP have not yet been programmed
-                        fprintf(stderr, "error: function %s, line %d\n", __FUNCTION__,__LINE__);
-                        fprintf(stderr, "SEND_STOP, SEND_RESET not yet programmed\n");
+                        log_error("SEND_STOP, SEND_RESET not yet programmed");
                     break;
 
                     case NO_WRITE: 
@@ -506,11 +506,8 @@ int main(){
                     break;
                     
                     default:
-
-                        fprintf(stderr, "warning: function: %s, line: %d, "
-                                    "entered default case, commWriteState: %d",
-                                    __FUNCTION__, __LINE__, commWriteState );
-
+                        log_warn("entered default case, commWriteState: %d",
+                                    commWriteState );
 
                         ++default_comm_write_state_count;
                     }
@@ -518,13 +515,16 @@ int main(){
             }
             else
             {
-
-                fprintf(stderr, "error: function: %s, line: %d, errorState: %s\n",
-                        __FUNCTION__, __LINE__, debug_error_condition_string[errorCondition]);
+                log_error("select return value indicates error condition: %s",
+                            debug_error_condition_string[errorCondition]);
 
                 if(errorCondition == SELECT_FAILURE){
-                    fprintf(stderr, "breaking out of while(exit_request) loop\n");
+                    log_fatal("breaking out of while(exit_request) loop");
                     break;
+
+                if(errorCondition == SELECT_ZERO_COUNT){
+                    ++write_select_zero_count;
+                }
             }
 
             

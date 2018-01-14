@@ -18,6 +18,7 @@
 
 
 #include <stdint.h>					// uint8_t
+#include <termios.h>				// speed_t
 #include <sys/types.h>				// ssize_t
 
 
