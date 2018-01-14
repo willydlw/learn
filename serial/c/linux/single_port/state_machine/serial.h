@@ -1,15 +1,19 @@
-/****************************************************************
-* FILENAME:     serial.h
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
+
+
+/**@file serial.h
+* 
+* @brief Serial communiciation functions for Linux
 *
-* DESCRIPTION:
-*		Serial communiciation functions for Linux
 *
-*
-* AUTHOR:   willydlw        START DATE: 12/24/17
-*
-* CHANGES:
-*
-* DATE          WHO        DETAIL
+* @author willydlw
+* @date 13 Jan 2018
+* @bugs No known bugs
 *
 */
 
@@ -23,47 +27,36 @@
 
 
 
-/******     GLOBAL   *************/
+/**
+* @brief Serial read states
+*
+*/
+typedef enum read_state_t {	READ_UNTIL = 0, 		/**< successfully read until desired byte */
+							READ_FAILURE = -1, 		/**< failed to read any bytes */
+							READ_TIMEOUT = -2		/**< timed out before reading all bytes */
+} SerialReadState;
 
-typedef enum read_state_t {	READ_UNTIL = 0, 
-							READ_FAILURE = -1, 
-							READ_TIMEOUT = -2} ReadState;
 
-
-
-/*******                 Function Prototypes              ******/
 
 
 /**
-* NAME : int serial_init(const char *serial_device_name, int baud_rate)
+* @brief Establishes serial port connection to serial_device_name, at
+*        the specified baud rate.
 *
-* DESCRIPTION: 
-*		Establishes serial port connection to serial_device_name, at
-*       the specified baud rate.
+*        8 data bits, no parity, one stop bit
+*        raw mode, so binary data can be sent/received
 *
-*       8 data bits, no parity, one stop bit
-*       raw mode, so binary data can be sent/received
+*        Non-blocking mode. No mimimum characters to read. Zero time
+*        waiting for data.
 *
-*       Non-blocking mode. No mimimum characters to read. Zero time
-*       waiting for data.
 *
-* INPUTS: 
-*   Parameters:
-*       const char*     serial_device_name              serial device path name
-                                                        example: "/dev/ttyUSB0"
-*       int             baud_rate                       baud rate 
-*   Globals:
-*       none
+* @param[in] serial_device_name     	serial device path name
+*                                       example: "/dev/ttyUSB0"
 *
-* OUTPUTS:
-*   Return:
-*       Type: int
-*       Values:            
-*           success     serial port file descriptor.
-*           failure     -1
+* @param[in] baud_rate                  baud rate 
 *
-* NOTES:
-*       Error messages are sent to stderr stream
+* @return success     serial port file descriptor.
+*         failure     -1
 *
 */
 int serial_init(const char *serial_device_name, int baud_rate);
@@ -71,52 +64,35 @@ int serial_init(const char *serial_device_name, int baud_rate);
 
 
 /**
-* NAME : int  set_baud_speed(baud_rate)
+* @brief returns corresponding baud speed for baud rate
 *
-* DESCRIPTION: returns corresponding baud speed for baud rate
+* @param[in]         baud_rate               baud rate (bps) 
+* 
+* @return success     baud speed
+*         failure     -1 when parameter baud_rate is not a 
+*					  recognized speed
 *
-* INPUTS: 
-*   Parameters:
-*       int             baud_rate               baud rate (bps) 
-*   Globals:
-*       none
-*
-* OUTPUTS:
-*   Return:
-*       type:           speed_t            
-*       values:
-*           success     baud speed
-*           failure     -1 when parameter baud_rate is not a 
-*						recognized speed
-*
-*      
-* NOTES:
-*       Error messages are sent to stderr stream
-*
+* @notes Supported Baud Rates
+*		 9600, 19200, 38400, 57600, 115200
 */
 speed_t  set_baud_speed(int baud_rate);
+
 
 
 /**
 * NAME : ssize_t serial_read(int fd, uint8_t *buf, size_t count)
 *
-* DESCRIPTION: attempts to read up to count bytes from the file descriptor fd 
-*              into the buffer starting at buf
+* @brief Attempts to read up to count bytes and store in the buffer,
+*        starting at buf
 *
 * INPUTS: 
 *   Parameters:
-*       int             fd                      file descriptor
-*       size_t          count                   max number of bytes to read 
-*   Globals:
-*       none
+* @param[in]	fd                      file descriptor
+* @param[in]	count                   max number of bytes to read 
 *
-* OUTPUTS:
-*   Parameters:
-*       uint8_t*        buf                     bytes read are stored in buffer
-*   Return:
-*       type:           ssize_t            
-*       values:
-*           success     number of bytes read
+* @param[out]	buf                     bytes read are stored in buffer
+* 
+* @return 	success     number of bytes read
 *           failure     -1 and errno is set appropriately
 *       
 *
@@ -125,71 +101,53 @@ ssize_t serial_read(int fd, uint8_t *buf, size_t count);
 
 
 
-
 /**
-* NAME : ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until, int timeout, ssize_t *bytes_read)
+* @brief Attempts to read bytes from the file descriptor
+*        into the buffer starting at buf.
 *
-* DESCRIPTION: attempts to read bytes from the file descriptor fd
-*              into the buffer starting at buf.
+*        Stops after reading and storing the until byte.
+*        Stops after reading buf_max bytes.
+*        Stops after timeout.
 *
-*              Stops after reading and storing the until byte.
-*              Stops after reading buf_max bytes.
-*              Stops after timeout.
-*
-* INPUTS: 
-*   Parameters:
-*       int             fd                      file descriptor
-*       int             buf_max                 maximum bytes to read
-*       uint8_t         until                   byte that ends read
-*       int             timeout                 stop reading after this much time (msec)
-*   Globals:
-*       ReadState
+*  
+* @param[in]	fd                      file descriptor
+* @param[in]    buf_max                 maximum bytes to read
+* @param[in]    until                   byte that ends read
+* @param[in]    timeout                 stop reading after this much time (msec)
 *
 * OUTPUTS:
 *   Parameters:
-*       uint8_t*        buf                     bytes read are stored in buffer
-*       ssize_t*        bytes_read              number of bytes read and stored in buf
-*   Return:
-*       type:           ssize_t            
-*       values:
-*           success     READ_UNTIL
-*           failure     READ_FAILURE
-*           failure     READ_TIMEOUT
+* @param[out]	buf                     bytes read are stored in buffer
+* @param[out]   bytes_read              number of bytes read and stored in buf
 *
-*      
-* NOTES:
+* @return success     READ_UNTIL
+*         failure     READ_FAILURE or READ_TIMEOUT
+*    
+* @notes
 *
 *       It is possible that bytes will be read and the function will timeout.
 *       Check the bytes_read value to avoid losing bytes on a timeout condition.
 *
 */
-ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until, 
+SerialReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until, 
                             int timeout, ssize_t *bytes_read);
 
 
 
 /**
-* NAME : ssize_t serial_write(int fd, const uint8_t *buf, size_t count)
-*
-* DESCRIPTION: writes up to count bytes from the buffer pointed to by buf,
-*              to the file pointed to by the file descriptor fd
+* @brief Writes up to count bytes from the buffer pointed to by buf,
+*        to the file pointed to by the file descriptor fd
 *
 * INPUTS: 
 *   Parameters:
-*       int             fd                      file descriptor
-*       const uint8_t*  buf                     pointer to buffer
-*       size_t          count                   number of bytes to write
-*   Globals:
-*       none
+* @param[in] 	fd                      file descriptor
+* @param[in]  	buf                     pointer to buffer
+* @param[in]    count                   number of bytes to write
 *
-* OUTPUTS:
-*   Return:
-*       type:           ssize_t          
-*       values:
-*           success     number of bytes written
-*           failure     -1 and errno is set appropriately
+* @return success     number of bytes written
+*         failure     -1 and errno is set appropriately
 *               
-*  NOTES:
+* @notes
 *       number of bytes written may be less than count
 *
 *
@@ -197,27 +155,17 @@ ReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t until,
 ssize_t serial_write(int fd, const char *buf, size_t numbytes);
 
 
+
 /**
-* NAME : int serial_close(int fd)
+* @brief Closes serial connection
 *
-* DESCRIPTION: attempts to close file descriptor
-*
-* INPUTS: 
-*   Parameters:
-*       int             fd                      file descriptor
+* @param[in]            fd                      file descriptor
 *   Globals:
-*       none
 *
-* OUTPUTS:
-*   Return:
-*       type:           int           
-*       values:
-*           success     zero
-*           failure     -1 and errno is set appropriately
-*
+* @return success     zero
+*         failure     -1 and errno is set appropriately
 *
 */
-
 int serial_close(int fd);
 
 #endif
