@@ -105,20 +105,22 @@ int serial_init(const char *serial_device_name, int baud_rate)
 
     // set baud rate
     bspeed = set_baud_speed(baud_rate);
+    log_trace("baud_rate: %d, bspeed: %d", baud_rate, bspeed);
+    log_trace("B9600 is %d, B0 is %d", B9600, B0);
     if(bspeed != 0){
         int setspeed;
 
         setspeed = cfsetispeed(&terminalSettings, bspeed);
-        if(setspeed != (int)bspeed){
-            log_fatal("cfsetispeed set speed at %d, instead of %d",
-                        setspeed, bspeed);
+        if(setspeed != 0){
+            log_fatal("cfsetispeed failure. baud_rate: %d, bspeed: %d",
+                        baud_rate, bspeed);
             return -1;
         }
 
         setspeed = cfsetospeed(&terminalSettings, bspeed);
-        if(setspeed != (int)bspeed){
-            log_fatal("cfsetospeed set speed at %d, instead of %d",
-                        setspeed, bspeed);
+        if(setspeed != 0){
+            log_fatal("cfsetospeed failure, baud_rate %d, bspeed %d",
+                        baud_rate, bspeed);
             return -1;
         }
     }
