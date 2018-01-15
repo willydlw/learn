@@ -1,18 +1,21 @@
-/****************************************************************
-* FILENAME:     communication_state.h
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
+
+
+/** @file communication_state.h
 *
-* DESCRIPTION:
-*       Finite state machine definitions for communication
-*       with another program.
+* @brief Finite state machine definitions for communication
+*        with another program.
 *
 *
+* @author willydlw        
+* @date 15 Jan 2018
 *
-*
-* AUTHOR:   Diane Williams        START DATE: 1/4/18
-*
-* CHANGES:
-*
-* DATE          WHO        DETAIL
+* @bugs No known bugs
 *
 */
 

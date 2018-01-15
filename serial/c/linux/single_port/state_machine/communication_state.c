@@ -1,4 +1,23 @@
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
 
+
+/** @file communication_state.c
+*
+* @brief Finite state machine definitions for communication
+*        with another program.
+*
+*
+* @author willydlw        
+* @date 15 Jan 2018
+*
+* @bugs No known bugs
+*
+*/
 
 #include <errno.h>
 #include <stdio.h>
