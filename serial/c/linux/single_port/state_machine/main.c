@@ -421,7 +421,7 @@ int main(){
                                         // responseData[2] is msb
                                         sensorData = (uint16_t)( 
                                             (((uint16_t)responseData[2]) << 8U) |
-                                            ((uint16_t)responseData[1] & 0xFF) );
+                                            ((uint16_t)responseData[3] & 0xFF) );
                                         
                                         process_sensor_data_received(sensorData);
                                     }
