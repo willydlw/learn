@@ -49,6 +49,7 @@
 extern const char* debug_comm_read_state_string[];
 extern const char* debug_comm_write_state_string[];
 
+extern const char* debug_operational_state_string[];
 extern const char* debug_message_state_string[];
 extern const char* debug_error_condition_string[];
 

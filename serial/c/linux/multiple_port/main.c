@@ -123,6 +123,7 @@ int main(int argc, char **argv){
     int totalSensorCount = 0;
     int activeSensorCount = 0;
     int serialPortsOpened;
+    int maxfd;
 
     if(argc < MIN_NUMBER_COMMAND_LINE_ARGS){
         log_fatal("argc: %d, minimum number command line arguments: %d", 
@@ -147,13 +148,19 @@ int main(int argc, char **argv){
     log_trace("serial ports opened: %2d\n", serialPortsOpened);
 
     
-    for(int i = 0; i < totalSensorCount; ++i){
-        log_trace("id: %d, name: %s, active: %d, device path: %s, baud rate: %d",
-            sensorCommArray[i].sensor.id, sensorCommArray[i].sensor.name,
-            sensorCommArray[i].sensor.active, 
-            sensorCommArray[i].sensor.devicePath,
-            sensorCommArray[i].sensor.baudRate);
-    }
+    
+
+
+    // find the file descriptor with the largest value
+    maxfd = find_largest_fd(sensorCommArray, totalSensorCount);
+
+    log_trace("maxfd: %d", maxfd);
+
+
+    log_SensorCommOperation_data(sensorCommArray, 
+        totalSensorCount);
+
+    close_serial_connections(sensorCommArray, totalSensorCount);
 
 
 	return 0;

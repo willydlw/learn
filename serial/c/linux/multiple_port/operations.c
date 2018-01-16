@@ -202,3 +202,23 @@ void close_serial_connections(SensorCommOperation *sensorCommArray,
 	}
 }
 
+
+
+
+void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, int length)
+{
+	for(int i = 0; i < length; ++i){
+        log_trace("id: %d, name: %s, active: %d\n"
+        	"device path: %s, baud rate: %d, fd: %d\n"
+        	"ostate: %s, messageState: %s\n"
+        	"readState: %d, writeState: %d",
+            sensorCommArray[i].sensor.id, sensorCommArray[i].sensor.name,
+            sensorCommArray[i].sensor.active, 
+            sensorCommArray[i].sensor.devicePath,
+            sensorCommArray[i].sensor.baudRate,
+            debug_operational_state_string[sensorCommArray[i].commState.ostate],
+            debug_message_state_string[sensorCommArray[i].commState.messageState],
+            sensorCommArray[i].commState.readState,
+            sensorCommArray[i].commState.writeState);
+    }
+}

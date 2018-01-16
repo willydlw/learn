@@ -11,11 +11,6 @@
 
 
 /* ========== Initialize External Global Constants     ========= */
-const char* debug_message_state_string[] = 
-		{ "AWAITING_START_MARKER", "AWAITING_SENSOR_ID", "AWAITING_DATA_BYTE_ONE",
-		  "AWAITING_DATA_BYTE_TWO", "AWAITING_DATA_BYTE_THREE", 
-		  "AWAITING_END_MARKER", "MESSAGE_COMPLETE"};
-
 
 const char* debug_operational_state_string[] =
 {
@@ -23,8 +18,16 @@ const char* debug_operational_state_string[] =
 	"ACKNOWLEDGE_CONNECTION",
 	"WAIT_FOR_SENSOR_ID",
 	"SENSOR_REGISTRATION_COMPLETE",
-	"RECEIVE_SENSOR_DATA"
+	"RECEIVE_SENSOR_DATA",
+	"NOT_OPERATIONAL"
 };
+
+
+const char* debug_message_state_string[] = 
+		{ "AWAITING_START_MARKER", "AWAITING_SENSOR_ID", "AWAITING_DATA_BYTE_ONE",
+		  "AWAITING_DATA_BYTE_TWO", "AWAITING_DATA_BYTE_THREE", 
+		  "AWAITING_END_MARKER", "MESSAGE_COMPLETE", "NOT_COMMUNICATING"};
+
 
 
 const char* debug_comm_read_state_string[] = 

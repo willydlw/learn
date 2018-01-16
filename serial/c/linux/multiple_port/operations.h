@@ -52,4 +52,8 @@ int find_largest_fd(const SensorCommOperation *sensorCommArray,
 void close_serial_connections(SensorCommOperation *sensorCommArray, 
 		int totalSensorCount);
 
+
+void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, 
+		int length);
+
 #endif
