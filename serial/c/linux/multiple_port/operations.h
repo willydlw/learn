@@ -41,5 +41,15 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 		int *unopenedList, int numUnopened);
 
 
+void initialize_communication_states(SensorCommOperation *sensorCommArray, 
+	int totalSensorCount);
+
+
+int find_largest_fd(const SensorCommOperation *sensorCommArray, 
+		int totalSensorCount);
+
+
+void close_serial_connections(SensorCommOperation *sensorCommArray, 
+		int totalSensorCount);
 
 #endif

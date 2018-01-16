@@ -17,7 +17,7 @@ int initialize_sensor_communication_operations(
 							totalSensorCount, activeSensorCount) == 0)
 	{
 		log_fatal("import_sensor_data returned 0");
-		return 0;
+		return -1;
 	}
 
 
@@ -46,8 +46,13 @@ int initialize_sensor_communication_operations(
 	handle_failed_serial_connections(sensorCommArray, unopenedList, 
 		unopenedIndex);
 
-	return 1;
+	// now initialize the communication states 
+	initialize_communication_states(sensorCommArray, *totalSensorCount);
+
+	return serialPortsOpened;
 }
+
+
 
 
 void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
@@ -68,6 +73,30 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 	}
 	
 }
+
+
+
+void initialize_communication_states(SensorCommOperation *sensorCommArray, 
+	int salength)
+{
+	for(int i = 0; i < salength; ++i){
+		if(sensorCommArray[i].sensor.active && 
+			sensorCommArray[i].sensor.fd != -1){
+
+			sensorCommArray[i].commState.ostate = WAIT_FOR_CONNECTION;
+			sensorCommArray[i].commState.messageState = AWAITING_START_MARKER;
+			sensorCommArray[i].commState.readState = true;
+			sensorCommArray[i].commState.writeState = false;
+		}
+		else{
+			sensorCommArray[i].commState.ostate = NOT_OPERATIONAL;
+			sensorCommArray[i].commState.messageState = NOT_COMMUNICATING;
+			sensorCommArray[i].commState.readState = false;
+			sensorCommArray[i].commState.writeState = false;
+		}
+	}
+}
+
 
 
 int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArray, 
@@ -149,14 +178,27 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 	return 1;
 }
 
-/*
-ErrorCondition perform_initialization_operations(const char* sensorDeviceInputFile)
+
+int find_largest_fd(const SensorCommOperation *sensorCommArray, 
+		int totalSensorCount)
 {
-	// import sensor device list, populate structs
+	int maxfd = -1;
+	for(int i = 0; i < totalSensorCount; ++i){
+		if(sensorCommArray[i].sensor.fd > maxfd){
+			maxfd = sensorCommArray[i].sensor.fd;
+		}
+	}
+	return maxfd;
+}
 
-	// intialize signal handler
 
-	// initialize serial connections
+void close_serial_connections(SensorCommOperation *sensorCommArray, 
+		int totalSensorCount)
+{
+	for(int i = 0; i < totalSensorCount; ++i){
+		if(sensorCommArray[i].sensor.fd != -1){
+			serial_close(sensorCommArray[i].sensor.fd);
+		}
+	}
+}
 
-	// set intial states
-} */

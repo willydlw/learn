@@ -122,6 +122,7 @@ int main(int argc, char **argv){
     // statistics
     int totalSensorCount = 0;
     int activeSensorCount = 0;
+    int serialPortsOpened;
 
     if(argc < MIN_NUMBER_COMMAND_LINE_ARGS){
         log_fatal("argc: %d, minimum number command line arguments: %d", 
@@ -137,12 +138,13 @@ int main(int argc, char **argv){
     log_init(LOG_TRACE, LOG_OFF, 1);
 
 
-    initialize_sensor_communication_operations(argv[1], 
+    serialPortsOpened = initialize_sensor_communication_operations(argv[1], 
         sensorCommArray, SENSOR_LIST_LENGTH, &totalSensorCount, &activeSensorCount);
 
 
-    log_trace("totalSensorCount: %d", totalSensorCount);
-    log_trace("active sensor count: %d\n", activeSensorCount);
+    log_trace("totalSensorCount:    %2d", totalSensorCount);
+    log_trace("active sensor count: %2d", activeSensorCount);
+    log_trace("serial ports opened: %2d\n", serialPortsOpened);
 
     
     for(int i = 0; i < totalSensorCount; ++i){
