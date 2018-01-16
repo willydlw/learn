@@ -1,14 +1,14 @@
-#ifndef SENSOR_DEVICE_H
-#define SENSOR_DEVICE_H
+#ifndef SENSOR_H
+#define SENSOR_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
 
-
-#define SENSOR_NAME_LENGTH 	24
-#define SENSOR_LIST_LENGTH 	 5
-#define MAX_SENSOR_ID		 SENSOR_LIST_LENGTH - 1
+#define SERIAL_DEV_PATH_LENGTH 	32
+#define SENSOR_NAME_LENGTH 		24
+#define SENSOR_LIST_LENGTH 	 	5
+#define MAX_SENSOR_ID		 	SENSOR_LIST_LENGTH - 1
 
 
 
@@ -22,12 +22,13 @@ typedef struct sensor_t{
 	char name[SENSOR_NAME_LENGTH];
 
 	int active;
-	int fd;
+	
+	char devicePath[SERIAL_DEV_PATH_LENGTH];
 }Sensor;
 
 
 
-bool initialize_sensor_array_data(const char* filename, Sensor *sensorArray, int salength,
+bool import_sensor_data(const char* filename, Sensor *sensorArray, int salength,
 	int *totalSensorCount, int *activeSensorCount);
 
 

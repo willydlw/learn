@@ -3,7 +3,7 @@
 #include <debuglog.h>
 
 
-#include "../sensor_device.h"
+#include "../sensor.h"
 
 /* argv[1] is name of sensor initialization file
 */

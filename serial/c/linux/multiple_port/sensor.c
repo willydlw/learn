@@ -2,7 +2,7 @@
 #include <string.h>				// memset, strcpy
 #include <debuglog.h>
 
-#include "sensor_device.h"
+#include "sensor.h"
 
 
 
@@ -14,14 +14,15 @@ const char sensorNameList[SENSOR_LIST_LENGTH][SENSOR_NAME_LENGTH] =
 
 
 
-bool initialize_sensor_array_data(const char* filename, Sensor *sensorArray, int salength,
+bool import_sensor_data(const char* filename, Sensor *sensorArray, int salength,
 	int *totalSensorCount, int *activeSensorCount)
 {
 	FILE *ifp = NULL;
 	int lineCount = 0;					// number of lines read from file
 
 	// temporary storage, data read from file
-	char name[SENSOR_NAME_LENGTH] = {'\0'};		
+	char name[SENSOR_NAME_LENGTH] = {'\0'};	
+	char devicePath[SERIAL_DEV_PATH_LENGTH] = {'\0'};
 	uint8_t id;
 	int onOff;
 
@@ -40,7 +41,8 @@ bool initialize_sensor_array_data(const char* filename, Sensor *sensorArray, int
 	// parse file to extract sensor name, id, active state
 	//memset(name, 0, SENSOR_NAME_LENGTH);
 
-	while(*totalSensorCount < salength && fscanf(ifp, "%s%hhu%d", name, &id, &onOff) == 3){
+	while(*totalSensorCount < salength && 
+			fscanf(ifp, "%s%hhu%d%s", name, &id, &onOff, devicePath) == 4){
 		
 		++lineCount;
 
@@ -53,12 +55,13 @@ bool initialize_sensor_array_data(const char* filename, Sensor *sensorArray, int
 			log_warn("input file: %s, line: %d, out of range sensor id %d",
 						filename, lineCount, id);
 			memset(name, 0, SENSOR_NAME_LENGTH);
+			memset(devicePath, 0, SERIAL_DEV_PATH_LENGTH);
 			continue;	// back to while test condition
 		}
 
 		// populate name, active data members
 		strcpy(sensorArray[id].name, name);
-		
+		strcpy(sensorArray[id].devicePath, devicePath);
 		sensorArray[id].active = onOff;
 
 		// increment counts
@@ -76,7 +79,8 @@ bool initialize_sensor_array_data(const char* filename, Sensor *sensorArray, int
 	fclose(ifp);
 	ifp = NULL;
 
-	log_info("totalSensorCount: %d, activeSensorCount: %d", *totalSensorCount, *activeSensorCount);
+	log_info("totalSensorCount: %d, activeSensorCount: %d", *totalSensorCount, 
+				*activeSensorCount);
 
 	return true;
 }
