@@ -144,12 +144,14 @@ int main(int argc, char **argv){
     log_trace("totalSensorCount: %d", totalSensorCount);
     log_trace("active sensor count: %d\n", activeSensorCount);
 
-    /*
-    for(int i = 0; i < sensorCommArray.totalSensorCount){
     
-        log_trace()
+    for(int i = 0; i < totalSensorCount; ++i){
+        log_trace("id: %d, name: %s, active: %d, device path: %s, baud rate: %d",
+            sensorCommArray[i].sensor.id, sensorCommArray[i].sensor.name,
+            sensorCommArray[i].sensor.active, 
+            sensorCommArray[i].sensor.devicePath,
+            sensorCommArray[i].sensor.baudRate);
     }
-*/
 
 
 	return 0;

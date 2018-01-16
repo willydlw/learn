@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "operations.h"
+#include "serial.h"
 
 
 int initialize_sensor_communication_operations(
@@ -8,11 +9,64 @@ int initialize_sensor_communication_operations(
 	SensorCommOperation *sensorCommArray, int saLength,
 	int* totalSensorCount, int* activeSensorCount)
 {
+	int serialPortsOpened = 0;
+
+
 	log_trace("function source code in progress");
-	import_sensor_data( sensorInputFileName, sensorCommArray, saLength,
-							totalSensorCount, activeSensorCount);
+	if( import_sensor_data( sensorInputFileName, sensorCommArray, saLength,
+							totalSensorCount, activeSensorCount) == 0)
+	{
+		log_fatal("import_sensor_data returned 0");
+		return 0;
+	}
+
+
+	int unopenedList[*activeSensorCount];
+	int unopenedIndex = 0;
+
+	// open serial connection for active sensors
+	for(int i = 0; i < *totalSensorCount; ++i){
+		if(sensorCommArray[i].sensor.active){
+			sensorCommArray[i].sensor.fd = 
+				serial_init(sensorCommArray[i].sensor.devicePath, 
+					sensorCommArray[i].sensor.baudRate);
+
+			if(sensorCommArray[i].sensor.fd != -1){
+				++serialPortsOpened;
+			}
+			else{
+				// add unopened devices to list
+				unopenedList[unopenedIndex] = i;
+				++unopenedIndex;
+			}
+
+		}
+	}
+
+	handle_failed_serial_connections(sensorCommArray, unopenedList, 
+		unopenedIndex);
 
 	return 1;
+}
+
+
+void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
+		int *unopenedList, int numUnopened)
+{
+	log_warn("TODO: function has not been coded to handle unopened serial connections");
+	if(numUnopened == 0){
+		log_info("all serial connections for active devices opened");
+		return;
+	}
+
+	for(int i = 0; i < numUnopened; ++i){
+		log_error("failed to open senor: %s, device path %s", 
+			sensorCommArray[unopenedList[i]].sensor.name,
+			sensorCommArray[unopenedList[i]].sensor.devicePath);
+		log_error("finish function by writing code to search dev directory"
+					" and try connecting to those tty devices\n");
+	}
+	
 }
 
 
@@ -27,13 +81,14 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 	char devicePath[SERIAL_DEV_PATH_LENGTH] = {'\0'};
 	uint8_t id;
 	int onOff;
+	int baudRate;
 
 
 	ifp = fopen(filename, "r");
 
 	if(ifp == NULL){
 		log_fatal("failed to open file %s", filename);
-		return false;
+		return 0;
 	}
 
 	// initialize counts
@@ -44,7 +99,8 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 	//memset(name, 0, SENSOR_NAME_LENGTH);
 
 	while(*totalSensorCount < salength && 
-			fscanf(ifp, "%s%hhu%d%s", name, &id, &onOff, devicePath) == 4){
+			fscanf(ifp, "%s%hhu%d%s%d", name, &id, &onOff, 
+					devicePath, &baudRate) == 5){
 		
 		++lineCount;
 
@@ -61,10 +117,16 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 			continue;	// back to while test condition
 		}
 
-		// populate name, active data members
+		// populate data members
+		sensorCommArray[id].sensor.active = onOff;
+		sensorCommArray[id].sensor.baudRate = baudRate;		
 		strcpy(sensorCommArray[id].sensor.name, name);
 		strcpy(sensorCommArray[id].sensor.devicePath, devicePath);
-		sensorCommArray[id].sensor.active = onOff;
+
+		// initialize to invalid file descriptor
+		// this field will be populated in another function
+		sensorCommArray[id].sensor.fd = -1;		
+
 
 		// increment counts
 		if(onOff == 1){

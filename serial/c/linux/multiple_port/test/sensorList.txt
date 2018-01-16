@@ -1,0 +1,5 @@
+sensor0		0	1	/dev/ttyACM0  9600
+sensor1		1	1	/dev/ttyACM1  9600
+sensor2		2	0	/dev/ttyACM2  9600
+sensor3		3	0	/dev/ttyACM3  9600
+sensor4		4	0	/dev/ttyACM4  9600

@@ -1,7 +1,6 @@
 #ifndef SENSOR_H
 #define SENSOR_H
 
-#include <stdbool.h>
 #include <stdint.h>
 
 
@@ -19,17 +18,14 @@ extern const char sensorNameList[SENSOR_LIST_LENGTH][SENSOR_NAME_LENGTH];
 
 typedef struct sensor_t{
 	uint8_t id;
-	char name[SENSOR_NAME_LENGTH];
-
 	int active;
-	
+	int baudRate;
+	int fd;
+	char name[SENSOR_NAME_LENGTH];
 	char devicePath[SERIAL_DEV_PATH_LENGTH];
 }Sensor;
 
 
-
-bool import_sensor_data(const char* filename, Sensor *sensorArray, int salength,
-	int *totalSensorCount, int *activeSensorCount);
 
 
 
