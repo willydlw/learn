@@ -20,7 +20,6 @@ typedef struct sensor_t{
 	uint8_t id;
 	int active;
 	int baudRate;
-	int fd;
 	char name[SENSOR_NAME_LENGTH];
 	char devicePath[SERIAL_DEV_PATH_LENGTH];
 }Sensor;

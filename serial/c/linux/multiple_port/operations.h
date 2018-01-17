@@ -12,8 +12,7 @@
 
 
 typedef struct debug_stats_t{
-	int read_select_zero_count;			/**<number of times select returns 0 when trying to read */
-    int write_select_zero_count;		/**<number of times select returns 0 when trying to write */
+	int select_zero_count;				/**<number of times select returns 0  */
     int sensor_id_mismatch_count;		/**<number of times sensor id received in a message
     										does not match the registered id */
     int default_comm_read_state_count;
@@ -47,6 +46,10 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 
 int find_largest_fd(const SensorCommOperation *sensorCommArray, 
 		int totalSensorCount);
+
+
+void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCount, 
+	int* writeCount, fd_set *readfds, fd_set *writefds);
 
 
 void close_serial_connections(SensorCommOperation *sensorCommArray, 

@@ -106,6 +106,9 @@
 *
 */
 
+
+#define _POSIX_C_SOURCE 200112L          // pselect
+
 #include <debuglog.h>
 
 #include "operations.h"
@@ -123,7 +126,23 @@ int main(int argc, char **argv){
     int totalSensorCount = 0;
     int activeSensorCount = 0;
     int serialPortsOpened;
-    int maxfd;
+
+    DebugStats debugStats = {0};
+    
+
+    // select  variables, needed to monitor multiple file descriptors
+    fd_set readfds;                     // read file descriptor set
+    fd_set writefds;                    // write file descriptor set
+
+    int maxfd;                          // largest file descriptor value             
+            
+    int selectReturn;                   // number read/write file descriptors pending
+    int readCount;                      // number of sensors in a read state
+    int writeCount;                     // number of sensors in a write state
+   
+    struct timespec timeout;            // timeout for pselect
+
+    
 
     if(argc < MIN_NUMBER_COMMAND_LINE_ARGS){
         log_fatal("argc: %d, minimum number command line arguments: %d", 
@@ -147,18 +166,64 @@ int main(int argc, char **argv){
     log_trace("active sensor count: %2d", activeSensorCount);
     log_trace("serial ports opened: %2d\n", serialPortsOpened);
 
-    
+    log_SensorCommOperation_data(sensorCommArray, 
+        totalSensorCount);
     
 
 
     // find the file descriptor with the largest value
+    // Note that we are only finding this value once, with the
+    // assumption that the serial connection is not closed
+    // and reopened with a different fd or that another sensor
+    // is not added at a later time with another fd that might
+    // be larger.
+
+    // If either of the above happens at some other point
+    // in the program, must ensure that this value of
+    // maxfd is still the largest numeric value
     maxfd = find_largest_fd(sensorCommArray, totalSensorCount);
 
-    log_trace("maxfd: %d", maxfd);
+    log_trace("maxfd: %d\n", maxfd);
+
+    // pselect requires an argument that is 1 more than
+    // the largest file descriptor value
+    maxfd = maxfd + 1;   
+
+    // pselect does not change the timeout argument, so we only need to
+    // initialize it here. If the code is changed to use select instead
+    // of pselect, then this initialization should be moved inside the
+    // while loop, as select updates the timeout argument, deducting
+    // elapsed time from it. 
+    // reference: http://man7.org/linux/man-pages/man2/select.2.html 
+    timeout.tv_sec = 2;                     // seconds
+    timeout.tv_nsec = 0;                    // nanoseconds   
 
 
-    log_SensorCommOperation_data(sensorCommArray, 
-        totalSensorCount);
+    // infinite while loop that will eventually be changed to
+    // while(!exit_request) cannot do it right now as the
+    // signal handler has not yet been integrated into this program
+    while(1){
+
+        build_fd_sets(sensorCommArray, totalSensorCount, &readCount, &writeCount,
+                    &readfds, &writefds);
+
+        // read only when a device has a read state
+        if(readCount > 0){
+
+            //selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, &empty_mask);
+            selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, NULL);
+        
+            log_trace("\nnumber of fd pending, selectReturn: %d\n", selectReturn);
+
+        /*if(exit_request){
+            log_info("received exit request");
+            break;
+        } */
+
+        }
+    } // end while(1)
+      
+    
 
     close_serial_connections(sensorCommArray, totalSensorCount);
 

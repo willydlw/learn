@@ -27,11 +27,11 @@ int initialize_sensor_communication_operations(
 	// open serial connection for active sensors
 	for(int i = 0; i < *totalSensorCount; ++i){
 		if(sensorCommArray[i].sensor.active){
-			sensorCommArray[i].sensor.fd = 
+			sensorCommArray[i].commState.fd = 
 				serial_init(sensorCommArray[i].sensor.devicePath, 
 					sensorCommArray[i].sensor.baudRate);
 
-			if(sensorCommArray[i].sensor.fd != -1){
+			if(sensorCommArray[i].commState.fd != -1){
 				++serialPortsOpened;
 			}
 			else{
@@ -81,7 +81,7 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 {
 	for(int i = 0; i < salength; ++i){
 		if(sensorCommArray[i].sensor.active && 
-			sensorCommArray[i].sensor.fd != -1){
+			sensorCommArray[i].commState.fd != -1){
 
 			sensorCommArray[i].commState.ostate = WAIT_FOR_CONNECTION;
 			sensorCommArray[i].commState.messageState = AWAITING_START_MARKER;
@@ -152,11 +152,6 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 		strcpy(sensorCommArray[id].sensor.name, name);
 		strcpy(sensorCommArray[id].sensor.devicePath, devicePath);
 
-		// initialize to invalid file descriptor
-		// this field will be populated in another function
-		sensorCommArray[id].sensor.fd = -1;		
-
-
 		// increment counts
 		if(onOff == 1){
 			*activeSensorCount = *activeSensorCount + 1;
@@ -179,13 +174,37 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 }
 
 
+void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCount, 
+	int* writeCount, fd_set *readfds, fd_set *writefds)
+{
+	FD_ZERO(readfds);
+	FD_ZERO(writefds);
+	*readCount = 0;
+	*writeCount = 0;
+
+	for(int i = 0; i < length; ++i){
+
+		if(sensorCommArray[i].commState.readState){
+			FD_SET(sensorCommArray[i].commState.fd, readfds);
+			*readCount = *readCount + 1;
+		}
+
+		if(sensorCommArray[i].commState.writeState){
+			FD_SET(sensorCommArray[i].commState.fd, writefds);
+			*writeCount = *writeCount + 1;
+		}
+	}
+
+}
+
+
 int find_largest_fd(const SensorCommOperation *sensorCommArray, 
 		int totalSensorCount)
 {
 	int maxfd = -1;
 	for(int i = 0; i < totalSensorCount; ++i){
-		if(sensorCommArray[i].sensor.fd > maxfd){
-			maxfd = sensorCommArray[i].sensor.fd;
+		if(sensorCommArray[i].commState.fd > maxfd){
+			maxfd = sensorCommArray[i].commState.fd;
 		}
 	}
 	return maxfd;
@@ -196,8 +215,8 @@ void close_serial_connections(SensorCommOperation *sensorCommArray,
 		int totalSensorCount)
 {
 	for(int i = 0; i < totalSensorCount; ++i){
-		if(sensorCommArray[i].sensor.fd != -1){
-			serial_close(sensorCommArray[i].sensor.fd);
+		if(sensorCommArray[i].commState.fd != -1){
+			serial_close(sensorCommArray[i].commState.fd);
 		}
 	}
 }
