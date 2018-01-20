@@ -50,7 +50,7 @@ extern const char* debug_comm_read_state_string[];
 extern const char* debug_comm_write_state_string[];
 
 extern const char* debug_operational_state_string[];
-extern const char* debug_receive_message_state_string[];
+extern const char* debug_read_write_message_state_string[];
 extern const char* debug_error_condition_string[];
 
 
@@ -107,31 +107,43 @@ typedef enum comm_write_state_t {
     the message state is changed to reflect which bytes have
     been received, and which byte is expected next.
 */
-typedef enum receive_message_state_t { 
-	AWAITING_START_MARKER = 0, 
-	AWAITING_DATA_BYTE_ONE = 1,
-	AWAITING_DATA_BYTE_TWO = 2,
-	AWAITING_DATA_BYTE_THREE = 3, 
-	AWAITING_END_MARKER = 4 
-} ReceiveMessageState;
+typedef enum read_write_message_state_t
+{ 
+	START_MARKER = 0, 							/*< waiting to read/write start marker    */
+	DATA_BYTE_ONE = 1,							/*< waiting to read/write data byte one   */
+	DATA_BYTE_TWO = 2,							/*< waiting to read/write data byte two   */
+	DATA_BYTE_THREE = 3, 						/*< waiting to read/write data byte three */
+	END_MARKER = 4 								/*< waiting to read/write end marker      */
+} ReadWriteMessageState;
+
+
 
 
 
 typedef struct comm_state_t{
-    OperationalState ostate;
-    ReceiveMessageState readIndex;							/*< readBuffer index value */
-   
+    
     int fd;													/*< serial file descriptor */
 
-    bool readState;											/*< true when serial data should be read */
+	// state flags
+    bool readState;											/*< true when serial data should be read       */
     bool writeState;										/*< true when serial data shoud be transmitted */
-    bool receivedCompleteState;								/*< true when entire message has been received */
+    bool readCompletedState;								/*< true when entire message has been received */
+    bool writeCompletedState;								/*< true when entire message has been written  */
 
+    // index
+    ReadWriteMessageState readIndex;						/*< readBuffer storage location for next byte read */
+    ReadWriteMessageState writeIndex;						/*< writeBuffer storage location for next byte written */
+
+	// storage
     uint8_t readBuffer[MESSAGE_LENGTH_BYTES];				/*< stores serial bytes read */
-
-    uint8_t finishedBuffer[MESSAGE_LENGTH_BYTES+1];			/*< stores message ready for processing. 
-    															additional byte needed for string operations */
     uint8_t writeBuffer[MESSAGE_LENGTH_BYTES];				/*< stores serial write bytes */
+
+    uint8_t readCompletedBuffer[MESSAGE_LENGTH_BYTES+1];	/*< stores message ready for processing. 
+    															additional byte needed for string operations */
+   
+
+    OperationalState ostate;								/*< present operational state */
+   
 }CommState;
 
 

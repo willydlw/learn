@@ -23,10 +23,10 @@ const char* debug_operational_state_string[] =
 };
 
 
-const char* debug_receive_message_state_string[] = 
-		{ "AWAITING_START_MARKER", "AWAITING_SENSOR_ID", "AWAITING_DATA_BYTE_ONE",
-		  "AWAITING_DATA_BYTE_TWO",  
-		  "AWAITING_END_MARKER", "MESSAGE_COMPLETE", "NOT_COMMUNICATING"};
+const char* debug_read_write_message_state_string[] = 
+		{ "START_MARKER", "DATA_BYTE_ONE",
+		  "DATA_BYTE_TWO", "DATA BYTE THREE",
+		  "END_MARKER"};
 
 
 
@@ -46,7 +46,7 @@ const char* debug_error_condition_string[] = {
 
 
 /** Note: The messages and commands are in common with the 
-          paired Arduino program. These would be easier to 
+          paired Arduino programs. These would be easier to 
           maintain if they were in a common file. 
 
           Currently, using the Arduino IDE requires that the
@@ -80,9 +80,7 @@ const uint8_t start_marker = '<';
 const uint8_t end_marker = '>';
 
 
-// end of data in common with Arduino
 
-static const uint8_t sensor_id[1] = {'1'};
 
 
 

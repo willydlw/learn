@@ -75,7 +75,8 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 }
 
 
-
+// NOTE: do not call this function before establishing serial connection
+// tests for file descriptor != -1
 void initialize_communication_states(SensorCommOperation *sensorCommArray, 
 	int salength)
 {
@@ -88,18 +89,37 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 			sensorCommArray[i].commState.ostate = WAIT_FOR_CONNECTION;
 		
 		}
-		else{
+		else{	// don't want to read if device not operational
 			sensorCommArray[i].commState.readState = false;
 			sensorCommArray[i].commState.ostate = NOT_OPERATIONAL;
 		}
 
-		// setting readIndex to 0 whether sensor is operational or not
-	// a non-operational sensor should never attempt to read
-	// but don't want to take a chance of anything going wrong 
-	// by setting the index to an out of bounds value
-	sensorCommArray[i].commState.readIndex = AWAITING_START_MARKER;
+	
+	/* write state false because the first operational state waits
+	   to receive a message from the connected device
+	*/
 	sensorCommArray[i].commState.writeState = false;
-	sensorCommArray[i].commState.receivedCompleteState = false;
+
+
+	sensorCommArray[i].commState.readCompletedState = false;
+	sensorCommArray[i].commState.writeCompletedState = false;
+
+
+	/* Note: setting readIndex,writeIndex to 0 whether sensor is operational 
+	   or not. A non-operational sensor should never attempt to read, but 
+	   don't want to take a chance of anything going wrong by setting the 
+	   index to an out of bounds array index value
+	*/
+	sensorCommArray[i].commState.readIndex = START_MARKER;
+	sensorCommArray[i].commState.writeIndex = START_MARKER;
+
+	/* zero out buffers ??? 
+
+	   Could call memset here to write 0's to all buffer array elements.
+	   This is not really a necessary step because the functions that
+	   use these buffers, completely fill every element every time,
+	   writing over the old data. 
+	*/
 
 	}	
 }
@@ -237,13 +257,12 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
 
         if(bytesRead > 0){
 
-            
             sensorCommArray[i].commState.readIndex = 
-            	process_received_message_bytes(sensorCommArray[i].commState.finishedBuffer,
+            	process_received_message_bytes(sensorCommArray[i].commState.readCompletedBuffer,
             		sensorCommArray[i].commState.readBuffer,
             		bytesRead, 
             		sensorCommArray[i].commState.readIndex, 
-            		&sensorCommArray[i].commState.receivedCompleteState);
+            		&sensorCommArray[i].commState.readCompletedState);
 
             
         	/* TODO: Decide whether to call the function to process 
@@ -257,7 +276,7 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
         	   device data and states.
         	*/
 
-        	if(sensorCommArray[i].commState.receivedCompleteState){
+        	if(sensorCommArray[i].commState.readCompletedState == true){
 
         		// use sensor id to set corresponding bit to 1
         		completedList |= (uint32_t)(1 << sensorCommArray[i].sensor.id);
@@ -319,8 +338,8 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
 *       should never be reached.
 *
 */
-ReceiveMessageState process_received_message_bytes(uint8_t *destination,
-	uint8_t *source, ssize_t bytesRead, ReceiveMessageState readIndex, bool *completedFlag)
+ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
+	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag)
 {
 	
 	ssize_t i;
@@ -357,12 +376,12 @@ ReceiveMessageState process_received_message_bytes(uint8_t *destination,
 	for(i = 0; i < bytesRead; ++i){
 
 		log_trace("message state readIndex: %25s, source[%ld]: %#4x, (char)source[%ld]: %c\n", 
-							debug_receive_message_state_string[readIndex], i,
+							debug_read_write_message_state_string[readIndex], i,
 							source[i], i, (char)source[i]);
 
 
 		switch(readIndex){
-			case AWAITING_START_MARKER:
+			case START_MARKER:
 				if((char)source[i] == start_marker){
 					//memset(receivedBuffer, '\0', (MESSAGE_LENGTH_BYTES+1)*sizeof(uint8_t) );
 					destination[readIndex] = source[i];
@@ -373,14 +392,14 @@ ReceiveMessageState process_received_message_bytes(uint8_t *destination,
 				}
 				break;
 
-			case AWAITING_DATA_BYTE_ONE:
-			case AWAITING_DATA_BYTE_TWO:
-			case AWAITING_DATA_BYTE_THREE:				// all 3 cases require same action
+			case DATA_BYTE_ONE:
+			case DATA_BYTE_TWO:
+			case DATA_BYTE_THREE:						// all 3 cases require same action
 				destination[readIndex] = source[i];
 				++readIndex;							
 				break;	
 
-			case AWAITING_END_MARKER:
+			case END_MARKER:
 
 				if((char)source[i] == end_marker){
 					destination[readIndex] = source[i];
@@ -396,7 +415,7 @@ ReceiveMessageState process_received_message_bytes(uint8_t *destination,
 						"discarding %s" , end_marker, i, source[i], tempBuf); 
 				}
 
-				readIndex = AWAITING_START_MARKER;
+				readIndex = START_MARKER;
 
 				break;
 				
@@ -406,11 +425,70 @@ ReceiveMessageState process_received_message_bytes(uint8_t *destination,
 				
 				// set message state to await start of new message
 				// throw away the unkown message bytes
-				readIndex = AWAITING_START_MARKER;
+				readIndex = START_MARKER;
 		}
 	}
 
 	return readIndex;
+}
+
+
+void process_operational_state(SensorCommOperation *sco)
+{
+
+	log_trace("entered function, operational state: %s", debug_operational_state_string[sco->commState.ostate]);
+	switch(sco->commState.ostate)
+	{
+		case WAIT_FOR_CONNECTION:
+
+			// processing the message we read, need to reset readCompletedState
+			// to indicate it had been processed
+			sco->commState.readCompletedState = false;
+			
+			// verify expected message was received before transitioning to next state
+			if( strcmp((char*)sco->commState.readCompletedBuffer, helloMessage) == 0){
+				sco->commState.ostate = ACKNOWLEDGE_CONNECTION;
+				sco->commState.readState = false;
+				sco->commState.writeState = true;
+			}
+			else{
+				// log error, do not change state
+				char tempBuf[MESSAGE_LENGTH_BYTES+1];
+				convert_array_to_hex_string(tempBuf, MESSAGE_LENGTH_BYTES+1, 
+						sco->commState.readCompletedBuffer, 
+						(ssize_t)strlen((char*)sco->commState.readCompletedBuffer));
+
+				log_error("operational state: %s, expected: %s, received: %s",
+					debug_operational_state_string[sco->commState.ostate],
+					helloMessageHEX, tempBuf);
+			}
+			break;
+
+		case ACKNOWLEDGE_CONNECTION:
+			if(sco->commState.writeCompletedState == true){
+				// after transmitting ack response, the next operational
+				// state is waiting to receive the sensor id from the device
+				sco->commState.ostate = WAIT_FOR_SENSOR_ID;
+				sco->commState.writeState = false;
+				sco->commState.readState = true;
+				sco->commState.writeCompletedState = false;
+			}
+			break;
+
+		case WAIT_FOR_SENSOR_ID:
+		log_fatal("WAIT_FOR_SENSOR_ID not programmed");
+		break;
+		case SENSOR_REGISTRATION_COMPLETE:
+		log_fatal("SENSOR_REGISTRATION_COMPLETE not programmed");
+		break;
+		case RECEIVE_SENSOR_DATA:
+		log_fatal("RECEIVE_SENSOR_DATA not programmed");
+		break;
+		case NOT_OPERATIONAL:
+			log_fatal("NOT_OPERATIONAL not programmed");
+		break;
+	}
+
 }
 
 
@@ -426,38 +504,20 @@ void process_completed_messages(SensorCommOperation *sensorCommArray,
 		// array index location is the same as the sensor id
 		// bit mask is 1 << i
 		if( (completedList & (uint32_t)(1 << i)) ){
-			// will be true when that bit is a 1
 
 			// for debug only, remove when debugging completed
-			char tempBuf[MESSAGE_LENGTH_BYTES+1];
-			convert_array_to_hex_string(tempBuf, MESSAGE_LENGTH_BYTES+1, 
-				sensorCommArray[i].commState.finishedBuffer,
+			char debugBuf[MESSAGE_LENGTH_BYTES+1];
+			convert_array_to_hex_string(debugBuf, MESSAGE_LENGTH_BYTES+1, 
+				sensorCommArray[i].commState.readCompletedBuffer,
 				MESSAGE_LENGTH_BYTES+1);
 				
-			log_trace("sensor %d received Buffer: %s", i, tempBuf);
+			log_trace("sensor %d received Buffer: %s", i, debugBuf);
 			// end debug
 
-			switch(sensorCommArray[i].commState.ostate)
-			{
-				case WAIT_FOR_CONNECTION:
-					log_fatal("WAIT_FOR_CONNECTION not programmed");
-				break;
-				case ACKNOWLEDGE_CONNECTION:
-				log_fatal("ACKNOWLEDGE_CONNECTION not programmed");
-				break;
-				case WAIT_FOR_SENSOR_ID:
-				log_fatal("WAIT_FOR_SENSOR_ID not programmed");
-				break;
-				case SENSOR_REGISTRATION_COMPLETE:
-				log_fatal("SENSOR_REGISTRATION_COMPLETE not programmed");
-				break;
-				case RECEIVE_SENSOR_DATA:
-				log_fatal("RECEIVE_SENSOR_DATA not programmed");
-				break;
-				case NOT_OPERATIONAL:
-					log_fatal("NOT_OPERATIONAL not programmed");
-				break;
-			}
+			
+			process_operational_state(&sensorCommArray[i]);
+
+			
 		}
 	}
 
@@ -493,17 +553,49 @@ void close_serial_connections(SensorCommOperation *sensorCommArray,
 void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, int length)
 {
 	for(int i = 0; i < length; ++i){
-        log_trace("id: %d, name: %s, active: %d\n"
-        	"device path: %s, baud rate: %d, fd: %d\n"
-        	"ostate: %s, readIndex: %s\n"
-        	"readState: %d, writeState: %d",
-            sensorCommArray[i].sensor.id, sensorCommArray[i].sensor.name,
+
+		char tempReadBuf[MESSAGE_LENGTH_BYTES+1];
+		char tempReadCompletedBuf[MESSAGE_LENGTH_BYTES+1];
+		char tempWriteBuf[MESSAGE_LENGTH_BYTES+1];
+
+		convert_array_to_hex_string(tempReadBuf, MESSAGE_LENGTH_BYTES+1, 
+			sensorCommArray[i].commState.readBuffer, MESSAGE_LENGTH_BYTES);
+
+		convert_array_to_hex_string(tempReadCompletedBuf, MESSAGE_LENGTH_BYTES+1, 
+			sensorCommArray[i].commState.readCompletedBuffer, MESSAGE_LENGTH_BYTES);
+
+		convert_array_to_hex_string(tempWriteBuf, MESSAGE_LENGTH_BYTES+1, 
+			sensorCommArray[i].commState.writeBuffer, MESSAGE_LENGTH_BYTES);
+
+
+        log_trace("\n\tsensor - \n"
+        	"\tid: %d, name: %s, active: %d\n"
+        	"\tdevice path: %s, baud rate: %d\n"
+        	"\tstate -\n"
+        	"\tostate: %s, fd: %d\n"
+        	"\treadIndex: %s, readState: %d, readCompletedState: %d \n"
+        	"\twriteIndex: %s, writeState: %d\n"
+        	"note: printing entire contents of buffer, may contain garbage\n"
+        	"\tdepending on operational state, as well as read/write Index\n"
+        	"\treadBuffer: %s\n"
+        	"\treadCompletedBuffer: %s\n"
+        	"\twriteBuffer: %s\n",
+
+            sensorCommArray[i].sensor.id, 
+            sensorCommArray[i].sensor.name,
             sensorCommArray[i].sensor.active, 
             sensorCommArray[i].sensor.devicePath,
             sensorCommArray[i].sensor.baudRate,
             debug_operational_state_string[sensorCommArray[i].commState.ostate],
-            debug_receive_message_state_string[sensorCommArray[i].commState.readIndex],
+            sensorCommArray[i].commState.fd,
+            debug_read_write_message_state_string[sensorCommArray[i].commState.readIndex],
             sensorCommArray[i].commState.readState,
-            sensorCommArray[i].commState.writeState);
+            sensorCommArray[i].commState.readCompletedState,
+            debug_read_write_message_state_string[sensorCommArray[i].commState.writeIndex],
+            sensorCommArray[i].commState.writeState,
+            tempReadBuf,
+            tempReadCompletedBuf,
+            tempWriteBuf);
+
     }
 }

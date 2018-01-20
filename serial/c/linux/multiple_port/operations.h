@@ -55,8 +55,8 @@ void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCo
 uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *readfds);
 
 
-ReceiveMessageState process_received_message_bytes(uint8_t *destination,
-	uint8_t *source, ssize_t bytesRead, ReceiveMessageState readIndex, bool *completedFlag);
+ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
+	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag);
 
 void process_completed_messages(SensorCommOperation *sensorCommArray, 
 		int length, uint32_t completedList);
