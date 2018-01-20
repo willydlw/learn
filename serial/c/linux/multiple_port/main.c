@@ -214,27 +214,40 @@ int main(int argc, char **argv){
         build_fd_sets(sensorCommArray, totalSensorCount, &readCount, &writeCount,
                     &readfds, &writefds);
 
+        //selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, &empty_mask);
+        selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, NULL);
+    
+        log_trace("\nnumber of fd pending, selectReturn: %d\n", selectReturn);
+
+        /*if(exit_request){
+        log_info("received exit request");
+        break;
+        } */
+
+        errorCondition = check_select_return_value(selectReturn, errno, &debugStats.select_zero_count);
+
+        if(errorCondition != SUCCESS){
+            // return to while(test condition)
+            continue;
+        }
+
+
         // read only when a device has a read state
         if(readCount > 0){
 
-            //selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, &empty_mask);
-            selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, NULL);
-        
-            log_trace("\nnumber of fd pending, selectReturn: %d\n", selectReturn);
+            completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
+            process_completed_messages(sensorCommArray, totalSensorCount, completedList);
 
-            /*if(exit_request){
-            log_info("received exit request");
-            break;
-        } */
+            call process operational state from here instead of process_completed_messages ???
 
-            errorCondition = check_select_return_value(selectReturn, errno, &debugStats.select_zero_count);
+        }
+            
+        if(writeCount > 0){
 
-            if(errorCondition == SUCCESS){
+            write_fdset(sensorCommArray, totalSensorCount, &writefds);
 
-                completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
-                process_completed_messages(sensorCommArray, totalSensorCount, completedList);
-
-            }
+            call process operational state here or do we to form a completed list like above
+            and let process_completed_messages handle it??
 
         }
     } // end while(1)
