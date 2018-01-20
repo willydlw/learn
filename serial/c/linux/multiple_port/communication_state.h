@@ -50,7 +50,7 @@ extern const char* debug_comm_read_state_string[];
 extern const char* debug_comm_write_state_string[];
 
 extern const char* debug_operational_state_string[];
-extern const char* debug_message_state_string[];
+extern const char* debug_receive_message_state_string[];
 extern const char* debug_error_condition_string[];
 
 
@@ -64,6 +64,12 @@ extern const char* ackResponse;					// acknowledge message received, command imp
 extern const char* nackResponse;				// nack - not acknowledge
 extern const char* helloMessage;				// confirms connection
 extern const char* helloMessageHEX;				// hexadecimal string of helloMessage character values
+
+
+// message markers
+extern const uint8_t start_marker;
+extern const uint8_t end_marker;
+
 
 
 
@@ -101,20 +107,31 @@ typedef enum comm_write_state_t {
     the message state is changed to reflect which bytes have
     been received, and which byte is expected next.
 */
-typedef enum message_state_t { 
-	AWAITING_START_MARKER, AWAITING_SENSOR_ID, AWAITING_DATA_BYTE_ONE,
-	AWAITING_DATA_BYTE_TWO, AWAITING_DATA_BYTE_THREE,
-	AWAITING_END_MARKER, MESSAGE_COMPLETE, NOT_COMMUNICATING
-} MessageState;
+typedef enum receive_message_state_t { 
+	AWAITING_START_MARKER = 0, 
+	AWAITING_DATA_BYTE_ONE = 1,
+	AWAITING_DATA_BYTE_TWO = 2,
+	AWAITING_DATA_BYTE_THREE = 3, 
+	AWAITING_END_MARKER = 4 
+} ReceiveMessageState;
 
 
 
 typedef struct comm_state_t{
     OperationalState ostate;
-    MessageState messageState;
-    int fd;
-    bool readState;
-    bool writeState;
+    ReceiveMessageState readIndex;							/*< readBuffer index value */
+   
+    int fd;													/*< serial file descriptor */
+
+    bool readState;											/*< true when serial data should be read */
+    bool writeState;										/*< true when serial data shoud be transmitted */
+    bool receivedCompleteState;								/*< true when entire message has been received */
+
+    uint8_t readBuffer[MESSAGE_LENGTH_BYTES];				/*< stores serial bytes read */
+
+    uint8_t finishedBuffer[MESSAGE_LENGTH_BYTES+1];			/*< stores message ready for processing. 
+    															additional byte needed for string operations */
+    uint8_t writeBuffer[MESSAGE_LENGTH_BYTES];				/*< stores serial write bytes */
 }CommState;
 
 
@@ -137,8 +154,8 @@ ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCou
 
 ssize_t read_message(int fd, fd_set readfds, uint8_t *buf);
 
-ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *buf, 
-											ssize_t bytes_read, uint8_t *responseData);
+
+
 
 
 ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteState);

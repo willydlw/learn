@@ -23,9 +23,9 @@ const char* debug_operational_state_string[] =
 };
 
 
-const char* debug_message_state_string[] = 
+const char* debug_receive_message_state_string[] = 
 		{ "AWAITING_START_MARKER", "AWAITING_SENSOR_ID", "AWAITING_DATA_BYTE_ONE",
-		  "AWAITING_DATA_BYTE_TWO", "AWAITING_DATA_BYTE_THREE", 
+		  "AWAITING_DATA_BYTE_TWO",  
 		  "AWAITING_END_MARKER", "MESSAGE_COMPLETE", "NOT_COMMUNICATING"};
 
 
@@ -75,8 +75,9 @@ const char* helloMessage = "<HLO>";
 const char* helloMessageHEX = "3C 48 4C 4F 3E";
 
 
-static const uint8_t start_marker = '<';
-static const uint8_t end_marker = '>';
+// message markers
+const uint8_t start_marker = '<';
+const uint8_t end_marker = '>';
 
 
 // end of data in common with Arduino
@@ -261,121 +262,11 @@ ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteSt
 
 
 
-/**
-* NAME : ssize_t process_received_message_bytes(MessageState *msgState, 
-*												const uint8_t *buf, 
-*												ssize_t bytes_read, 
-*												uint8_t *responseData)
-*
-* DESCRIPTION: Based on the message state, bytes are copied from buf
-*              to the appropriate position in responsedData.
-*
-*			   The message state is updated with each byte transferred.
-*
-*			   The fucntion returns When the MESSAGE_COMPLETE state is reached,
-*			   or when bytes_read have been transferred. t
-*
-*              
-* INPUTS: 
-*   Parameters:
-*       MessageState* 	msgState       	  pointer to the message state
-*	    const uint8_t*  buf 			  buffer containing serial bytes read
-*	    ssize_t			bytes_read		  number of bytes in buf
-*
-* OUTPUTS:
-*
-*	    MessageState*   msgState          message state is updated as bytes
-*                                         are read from buf and stored in 
-*										  responseData
-*
-*		uint8_t*		responseData      bytes extracted from buf
-*	    	
-*							  
-*   Return:
-*       type:			ssize_t
-*
-*		number of bytes that were not transferred from buf to responseData
-*
-*      
-* NOTES:
-*		When the message state is AWAITING_START_MARKER and the start marker
-*		is not read, an error message is printed. The state does change
-*		until the start marker is read.
-*
-*		If the default case of the message state machine is reached, an
-*		error message is printed, and the message state is set to 
-*		AWAITING_START_MARKER. Some data may be lost. The default case
-*       should never be reached.
-*
-*/
-ssize_t process_received_message_bytes(MessageState *msgState, const uint8_t *buf, 
-											ssize_t bytes_read, uint8_t *responseData)
-{
-	
-	log_trace("start of function, message state: %s\n", debug_message_state_string[*msgState]);
-
-	ssize_t i;
-	ssize_t bytes_remaining;
-	
-	for(i = 0, bytes_remaining = bytes_read; i < bytes_read; ++i){
-
-		log_trace("i: %ld, message state: %25s, buf[i]: %#4x, (char)buf[i]: %c\n", 
-							i, debug_message_state_string[*msgState], buf[i], (char)buf[i]);
-
-		--bytes_remaining;
-
-		switch(*msgState){
-			case AWAITING_START_MARKER:
-				if((char)buf[i] == start_marker){
-					memset(responseData, '\0', (MESSAGE_LENGTH_BYTES+1)*sizeof(uint8_t) );
-					responseData[0] = buf[i];
-					*msgState = AWAITING_DATA_BYTE_ONE;
-				}
-				else { 
-					log_warn("state: AWAITING_START_MARKER, buf[%ld]: %#x\n", i, buf[i]);
-				}
-				break;
-
-			case AWAITING_DATA_BYTE_ONE:
-				responseData[1] = buf[i];
-				*msgState = AWAITING_DATA_BYTE_TWO;
-				break;
-
-			case AWAITING_DATA_BYTE_TWO:
-				responseData[2] = buf[i];
-				*msgState = AWAITING_DATA_BYTE_THREE;
-				break;
-
-			case AWAITING_DATA_BYTE_THREE:
-				responseData[3] = buf[i];
-				*msgState = AWAITING_END_MARKER;
-				break;
-
-			case AWAITING_END_MARKER:
-				responseData[4] = buf[i];
-				responseData[5] = '\0';     // null terminate the string
-				*msgState = MESSAGE_COMPLETE;
-				return bytes_remaining;	// bytes not processed
-
-			default:
-				log_error("reached default case, msgState: %#x, "
-							"message_state_string: %s", (unsigned int) *msgState, 
-						*msgState < NUM_MESSAGE_STATES? 
-								debug_message_state_string[*msgState]:"unknown");
-				
-				// set message state to await start of new message
-				// throw away the unkown message bytes
-				*msgState = AWAITING_START_MARKER;
-		}
-	}
-	return bytes_remaining;
-}
-
 
 
 	
 
-
+/* not used
 bool valid_sensor_id(uint8_t id){
 	// @TODO: need a scheme for quickly validating sensor ids
 	//        once multiple sensors are handled
@@ -384,6 +275,7 @@ bool valid_sensor_id(uint8_t id){
 	else 
 		return false;
 }
+*/
 
 
 void process_sensor_data_received(uint16_t theData)

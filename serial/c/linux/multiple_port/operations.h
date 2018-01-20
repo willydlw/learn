@@ -52,6 +52,16 @@ void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCo
 	int* writeCount, fd_set *readfds, fd_set *writefds);
 
 
+uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *readfds);
+
+
+ReceiveMessageState process_received_message_bytes(uint8_t *destination,
+	uint8_t *source, ssize_t bytesRead, ReceiveMessageState readIndex, bool *completedFlag);
+
+void process_completed_messages(SensorCommOperation *sensorCommArray, 
+		int length, uint32_t completedList);
+
+
 void close_serial_connections(SensorCommOperation *sensorCommArray, 
 		int totalSensorCount);
 

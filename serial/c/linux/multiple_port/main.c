@@ -109,6 +109,8 @@
 
 #define _POSIX_C_SOURCE 200112L          // pselect
 
+#include <errno.h>
+
 #include <debuglog.h>
 
 #include "operations.h"
@@ -141,6 +143,11 @@ int main(int argc, char **argv){
     int writeCount;                     // number of sensors in a write state
    
     struct timespec timeout;            // timeout for pselect
+
+    ErrorCondition errorCondition;      // select and serial error conditions
+
+    // bits set to one represent sensor with complete message received
+    uint32_t completedList = 0;  
 
     
 
@@ -215,10 +222,19 @@ int main(int argc, char **argv){
         
             log_trace("\nnumber of fd pending, selectReturn: %d\n", selectReturn);
 
-        /*if(exit_request){
+            /*if(exit_request){
             log_info("received exit request");
             break;
         } */
+
+            errorCondition = check_select_return_value(selectReturn, errno, &debugStats.select_zero_count);
+
+            if(errorCondition == SUCCESS){
+
+                completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
+                process_completed_messages(sensorCommArray, totalSensorCount, completedList);
+
+            }
 
         }
     } // end while(1)
