@@ -450,6 +450,8 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.ostate = ACKNOWLEDGE_CONNECTION;
 				sco->commState.readState = false;
 				sco->commState.writeState = true;
+				// load acknowledge message into write buffer
+				strcpy(sco->commState.writeBuffer, ackResponse);
 			}
 			else{
 				// log error, do not change state
@@ -471,8 +473,9 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.ostate = WAIT_FOR_SENSOR_ID;
 				sco->commState.writeState = false;
 				sco->commState.readState = true;
-				sco->commState.writeCompletedState = false;
+				sco->commState.writeCompletedState = false;	
 			}
+			else WHAT?
 			break;
 
 		case WAIT_FOR_SENSOR_ID:
@@ -524,11 +527,24 @@ void process_completed_messages(SensorCommOperation *sensorCommArray,
 }
 
 
+
+
+/* @brief Searches sensor comm array to find the file descriptor with
+*         the largest value.
+*    
+*
+* @param[in] sensorCommArray		array of sensor communication operation structures
+* @param[in] length                 number of elements in sensorCommArray
+*
+* @return largest file descriptor value
+*/
 int find_largest_fd(const SensorCommOperation *sensorCommArray, 
-		int totalSensorCount)
+		int length)
 {
-	int maxfd = -1;
-	for(int i = 0; i < totalSensorCount; ++i){
+	
+	int maxfd = sensorCommArray[0].commState.fd;
+
+	for(int i = 1; i < length; ++i){
 		if(sensorCommArray[i].commState.fd > maxfd){
 			maxfd = sensorCommArray[i].commState.fd;
 		}
@@ -537,10 +553,18 @@ int find_largest_fd(const SensorCommOperation *sensorCommArray,
 }
 
 
+/* @brief Closes all open file descriptors in the sensor array
+*    
+*
+* @param[in] sensorCommArray		array of sensor communication operation structures
+* @param[in] length                 number of elements in sensorCommArray
+*
+* @return void
+*/
 void close_serial_connections(SensorCommOperation *sensorCommArray, 
-		int totalSensorCount)
+		int length)
 {
-	for(int i = 0; i < totalSensorCount; ++i){
+	for(int i = 0; i < length; ++i){
 		if(sensorCommArray[i].commState.fd != -1){
 			serial_close(sensorCommArray[i].commState.fd);
 		}
@@ -549,7 +573,17 @@ void close_serial_connections(SensorCommOperation *sensorCommArray,
 
 
 
-
+/* @brief Logs the state of every data member in the sensorCommArray.
+*         
+*		  Log trace level
+*
+*         Buffer contents are written as a hexadecimal string
+*
+* @param[in] sensorCommArray		array of sensor communication operation structures
+* @param[in] length                 number of elements in sensorCommArray
+*
+* @return void
+*/
 void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, int length)
 {
 	for(int i = 0; i < length; ++i){

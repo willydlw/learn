@@ -129,6 +129,13 @@ ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCou
         return SELECT_FAILURE;
      }
     else if(selectfds == 0){
+    	// in the long run, may not need to maintain this stat
+        // there may be times when no data has been received
+        // nor is there data to write, depends on timing of this loop
+        // With a two second timeout, it is unlikely that there will
+        // never be sensor data to read when the operational state
+        // is RECEIVE_SENSOR_DATA
+    	log_debug("select returned zero");
     	*zeroCount = *zeroCount + 1;
     	return SELECT_ZERO_COUNT;
     }

@@ -44,6 +44,16 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 	int totalSensorCount);
 
 
+
+/* @brief Searches sensor comm array to find the file descriptor with
+*         the largest value.
+*    
+*
+* @param[in] sensorCommArray		array of sensor communication operation structures
+* @param[in] length                 number of elements in sensorCommArray
+*
+* @return largest file descriptor value
+*/
 int find_largest_fd(const SensorCommOperation *sensorCommArray, 
 		int totalSensorCount);
 
@@ -62,10 +72,31 @@ void process_completed_messages(SensorCommOperation *sensorCommArray,
 		int length, uint32_t completedList);
 
 
+
+/* @brief Closes all open file descriptors in the sensor array
+*    
+*
+* @param[in] sensorCommArray		array of sensor communication operation structures
+* @param[in] length                 number of elements in sensorCommArray
+*
+* @return void
+*/
 void close_serial_connections(SensorCommOperation *sensorCommArray, 
-		int totalSensorCount);
+		int length);
 
 
+
+/* @brief Logs the state of every data member in the sensorCommArray.
+*         
+*		  Log trace level
+*
+*         Buffer contents are written as a hexadecimal string
+*
+* @param[in] sensorCommArray		array of sensor communication operation structures
+* @param[in] length                 number of elements in sensorCommArray
+*
+* @return void
+*/
 void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, 
 		int length);
 
