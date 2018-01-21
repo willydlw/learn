@@ -233,28 +233,39 @@ int main(int argc, char **argv){
         if(readCount > 0){
 
             completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
-            process_completed_messages(sensorCommArray, totalSensorCount, completedList);
 
-            /******
+            // process each completed task in the array
+            for(int i = 0; i < totalSensorCount; ++i){
+                log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
 
-            call process operational state from here instead of process_completed_messages ???
-
-            ?????
-            */
-
+                // array index location is the same as the sensor id
+                // bit mask is 1 << i
+                if( (completedList & (uint32_t)(1 << i)) ){
+                    
+                    process_operational_state(&sensorCommArray[i]);
+                    
+                }
+            }
         }
             
         if(writeCount > 0){
 
-            write_fdset(sensorCommArray, totalSensorCount, &writefds);
+            completedList = write_fdset(sensorCommArray, totalSensorCount, &writefds);
 
-            /***** ??????????????????
-            call process operational state here or do we to form a completed list like above
-            and let process_completed_messages handle it??
+            // process each completed task in the array
+            for(int i = 0; i < totalSensorCount; ++i){
+                log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
 
-            ????????????*/
-
+                // array index location is the same as the sensor id
+                // bit mask is 1 << i
+                if( (completedList & (uint32_t)(1 << i)) ){
+                    
+                    process_operational_state(&sensorCommArray[i]);
+                    
+                }
+            }
         }
+        
     } // end while(1)
       
     

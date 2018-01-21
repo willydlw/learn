@@ -469,6 +469,22 @@ void process_operational_state(SensorCommOperation *sco)
 {
 
 	log_trace("entered function, operational state: %s", debug_operational_state_string[sco->commState.ostate]);
+
+
+
+	// for debug only, remove when debugging completed
+	if(sco->commState.readState == true){
+		char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
+			convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
+				sco->commState.readCompletedBuffer,
+				READ_MESSAGE_LENGTH_BYTES);
+				
+			log_trace("sensor %d message received: %s\n", sco->sensor.id, hexmsg);
+
+	}
+	// end debug
+
+
 	switch(sco->commState.ostate)
 	{
 		case WAIT_FOR_CONNECTION:
@@ -531,37 +547,6 @@ void process_operational_state(SensorCommOperation *sco)
 
 }
 
-
-
-void process_completed_messages(SensorCommOperation *sensorCommArray, 
-		int length, uint32_t completedList)
-{
-
-	for(int i = 0; i < length; ++i){
-
-		log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
-
-		// array index location is the same as the sensor id
-		// bit mask is 1 << i
-		if( (completedList & (uint32_t)(1 << i)) ){
-
-			// for debug only, remove when debugging completed
-			char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
-			convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
-				sensorCommArray[i].commState.readCompletedBuffer,
-				READ_MESSAGE_LENGTH_BYTES);
-				
-			log_trace("sensor %d received Buffer: %s", i, hexmsg);
-			// end debug
-
-			
-			process_operational_state(&sensorCommArray[i]);
-
-			
-		}
-	}
-
-}
 
 
 

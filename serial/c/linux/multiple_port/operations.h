@@ -71,9 +71,8 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
 ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag);
 
-void process_completed_messages(SensorCommOperation *sensorCommArray, 
-		int length, uint32_t completedList);
 
+void process_operational_state(SensorCommOperation *sco);
 
 
 /* @brief Closes all open file descriptors in the sensor array
