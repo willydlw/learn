@@ -170,16 +170,14 @@ ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCou
 */
 ssize_t read_message(int fd, fd_set readfds, uint8_t *buf)
 {
-	// since this function will be called numerous times, making 
-	// bytes_read static will save time popping it on/off stack
-	// will use less stack space
-	static ssize_t bytes_read = 0;
+
+	ssize_t bytes_read = 0;
 
 	if(FD_ISSET(fd, &readfds)){
 
         // restricting to read maximum of the length of a complete
         // message. 
-        bytes_read = serial_read(fd, buf, MESSAGE_LENGTH_BYTES );
+        bytes_read = serial_read(fd, buf, READ_MESSAGE_LENGTH_BYTES );
 
         // debug
         char debugBuffer[3*bytes_read + 1];
@@ -189,6 +187,9 @@ ssize_t read_message(int fd, fd_set readfds, uint8_t *buf)
 
         // end debug
         
+    }
+    else{
+    	log_debug("FD_ISSET(fd, &readfds) not true for fd %d", fd);
     }
 
     return bytes_read;
@@ -226,61 +227,26 @@ ssize_t read_message(int fd, fd_set readfds, uint8_t *buf)
 *       
 *
 */
-ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteState)
-{        	
+ssize_t write_message(int fd, fd_set writefds, uint8_t *buf, size_t numBytes)
+{
+	ssize_t bytesWritten = 0;
+
     if(FD_ISSET(fd, &writefds)){
 
-    	ssize_t bytes_written;
-    	size_t expected_bytes;
-   		
-   		switch(commWriteState){
-   			case SEND_READY_SIGNAL:
-   				expected_bytes = strlen(readyCommand);
-   				bytes_written = serial_write(fd, readyCommand, expected_bytes);
-   				
-   			break;
-
-   			case SEND_RESET:
-   				expected_bytes = strlen(resetCommand);
-   				bytes_written = serial_write(fd, resetCommand, expected_bytes);
-   				
-   			break;
-
-   			case SEND_STOP:
-   				expected_bytes = strlen(resetCommand);
-   				bytes_written = serial_write(fd, resetCommand, expected_bytes);
-   			break;
-   			default:
-   				log_warn("commWriteState: %#x", (unsigned int)commWriteState);
-   		}
-
-   		return (ssize_t)expected_bytes == bytes_written? SUCCESS:SERIAL_WRITE_ERROR;
+    	bytesWritten = serial_write(fd, (const char*)buf, numBytes);
+   		   		
     }
     else{
     	log_warn("FD_ISSET(fd, &writefds) not true for fd %d", fd);
-    	return FD_ISSET_ERROR;
     }
+
+    return bytesWritten;
     
 }
 
 
 
 
-
-
-
-	
-
-/* not used
-bool valid_sensor_id(uint8_t id){
-	// @TODO: need a scheme for quickly validating sensor ids
-	//        once multiple sensors are handled
-	if(id == sensor_id[0])
-		return true;
-	else 
-		return false;
-}
-*/
 
 
 void process_sensor_data_received(uint16_t theData)
@@ -300,6 +266,8 @@ void convert_array_to_hex_string(char* destination, ssize_t dlength, const uint8
 	}
 }
 
+
+/*
 void process_read_state_error_message(CommReadState commReadState, 
 	const uint8_t *responseData, ssize_t rlength)
 {
@@ -317,3 +285,5 @@ void process_read_state_error_message(CommReadState commReadState,
             helloMessageHEX, hexmsg,
             helloMessage, (const char*)responseData);
 }
+
+*/

@@ -29,9 +29,10 @@
 
 /* ==========     Preprocessor Directives     ==========*/
 
-#define NUM_MESSAGE_STATES 7			// number of message states definec in enum MessageState
+#define NUM_MESSAGE_STATES 7			// number of message states defined in enum MessageState
 
-#define MESSAGE_LENGTH_BYTES 5			// every message received will be this length 
+#define READ_MESSAGE_LENGTH_BYTES 5		// every message received will be this length 
+#define WRITE_MESSAGE_LENGTH_BYTES 5	// every message transmitted will be this length
 
 
 
@@ -86,7 +87,7 @@ typedef enum operational_state_t{
 
 
 // communication states
-
+/*
 typedef enum comm_read_state_t { 
 	NO_READ = 0,
 	READ_HELLO = 1, 
@@ -100,7 +101,7 @@ typedef enum comm_write_state_t {
 	SEND_RESET = 2, 
 	SEND_STOP = 3
 }CommWriteState;
-
+*/
 
 
 /*  messages are received byte by byte. As each byte is recevied,
@@ -135,10 +136,10 @@ typedef struct comm_state_t{
     ReadWriteMessageState writeIndex;						/*< writeBuffer storage location for next byte written */
 
 	// storage
-    uint8_t readBuffer[MESSAGE_LENGTH_BYTES];				/*< stores serial bytes read */
-    uint8_t writeBuffer[MESSAGE_LENGTH_BYTES];				/*< stores serial write bytes */
+    uint8_t readBuffer[READ_MESSAGE_LENGTH_BYTES];				/*< stores serial bytes read */
+    uint8_t writeBuffer[WRITE_MESSAGE_LENGTH_BYTES];				/*< stores serial write bytes */
 
-    uint8_t readCompletedBuffer[MESSAGE_LENGTH_BYTES+1];	/*< stores message ready for processing. 
+    uint8_t readCompletedBuffer[READ_MESSAGE_LENGTH_BYTES+1];	/*< stores message ready for processing. 
     															additional byte needed for string operations */
    
 
@@ -151,8 +152,8 @@ typedef struct comm_state_t{
 
 /*  error conditions help indicate exact sources of failure */
 typedef enum error_conditions_t { 
-	SUCCESS, SELECT_FAILURE, SELECT_ZERO_COUNT, 
-	SERIAL_WRITE_ERROR, FD_ISSET_ERROR
+	SUCCESS, SELECT_FAILURE, SELECT_ZERO_COUNT 
+	//SERIAL_WRITE_ERROR
 } ErrorCondition;
 
 
@@ -170,10 +171,8 @@ ssize_t read_message(int fd, fd_set readfds, uint8_t *buf);
 
 
 
-ErrorCondition write_message(int fd, fd_set writefds, CommWriteState commWriteState);
+ssize_t write_message(int fd, fd_set writefds, uint8_t *buf, size_t numBytes);
 
-
-bool valid_sensor_id(uint8_t id);
 
 
 void process_sensor_data_received(uint16_t theData);
@@ -183,8 +182,8 @@ void convert_array_to_hex_string(char* destination, ssize_t dlength,
 
 
 
-void process_read_state_error_message(CommReadState commReadState, 
+/*void process_read_state_error_message(CommReadState commReadState, 
 	const uint8_t *responseData, ssize_t rlength);
-
+*/
 
 #endif

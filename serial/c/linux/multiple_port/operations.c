@@ -288,6 +288,38 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
 }
 
 
+uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *writefds)
+{
+	   
+    // bits set to one represent sensor with complete message received
+    uint32_t completedList = 0;
+
+    size_t bytesToWrite; 
+    ssize_t bytesWritten;
+
+
+    for(int i = 0; i < length; ++i){
+
+    	bytesToWrite = WRITE_MESSAGE_LENGTH_BYTES - sensorCommArray[i].commState.writeIndex;
+
+    	
+    	bytesWritten = write_message(sensorCommArray[i].commState.fd, 
+    								*writefds, 
+    								// pass the address of the first byte that should be transmitted
+									&sensorCommArray[i].commState.writeBuffer[sensorCommArray[i].commState.writeIndex],
+									bytesToWrite);
+
+    	if(bytesWritten == (ssize_t)bytesToWrite){
+
+    		// use sensor id to set corresponding bit to 1
+        	completedList |= (uint32_t)(1 << sensorCommArray[i].sensor.id);
+    	}
+    }
+
+    return completedList;
+}
+
+
 
 /**   comments are completely out of date, revise
 *
@@ -407,12 +439,12 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 					*completedFlag = true;					// full message received
 				}
 				else{
-					char tempBuf[MESSAGE_LENGTH_BYTES+1] = {'\0'};
+					char hexmsg[3*readIndex+1];
 
-					convert_array_to_hex_string(tempBuf, MESSAGE_LENGTH_BYTES+1, destination, readIndex+1);
+					convert_array_to_hex_string(hexmsg, 3*readIndex+1, destination, readIndex);
 
-					log_warn("expecting end marker value %#x, source[%ld]: %#x"
-						"discarding %s" , end_marker, i, source[i], tempBuf); 
+					log_warn("expecting end marker value %#x, received: %#x"
+						"discarding %s" , end_marker, i, source[i], hexmsg); 
 				}
 
 				readIndex = START_MARKER;
@@ -451,18 +483,18 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.readState = false;
 				sco->commState.writeState = true;
 				// load acknowledge message into write buffer
-				strcpy(sco->commState.writeBuffer, ackResponse);
+				strcpy((char*)sco->commState.writeBuffer, ackResponse);
 			}
 			else{
 				// log error, do not change state
-				char tempBuf[MESSAGE_LENGTH_BYTES+1];
-				convert_array_to_hex_string(tempBuf, MESSAGE_LENGTH_BYTES+1, 
+				char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
+				convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
 						sco->commState.readCompletedBuffer, 
-						(ssize_t)strlen((char*)sco->commState.readCompletedBuffer));
+						READ_MESSAGE_LENGTH_BYTES);
 
 				log_error("operational state: %s, expected: %s, received: %s",
 					debug_operational_state_string[sco->commState.ostate],
-					helloMessageHEX, tempBuf);
+					helloMessageHEX, hexmsg);
 			}
 			break;
 
@@ -475,7 +507,12 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.readState = true;
 				sco->commState.writeCompletedState = false;	
 			}
-			else WHAT?
+			else{
+
+				log_debug("operational state: %s, writeCompletedState is false, logging data values below",
+					debug_operational_state_string[sco->commState.ostate]);
+				log_SensorCommOperation_data(sco);
+			}
 			break;
 
 		case WAIT_FOR_SENSOR_ID:
@@ -509,12 +546,12 @@ void process_completed_messages(SensorCommOperation *sensorCommArray,
 		if( (completedList & (uint32_t)(1 << i)) ){
 
 			// for debug only, remove when debugging completed
-			char debugBuf[MESSAGE_LENGTH_BYTES+1];
-			convert_array_to_hex_string(debugBuf, MESSAGE_LENGTH_BYTES+1, 
+			char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
+			convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
 				sensorCommArray[i].commState.readCompletedBuffer,
-				MESSAGE_LENGTH_BYTES+1);
+				READ_MESSAGE_LENGTH_BYTES);
 				
-			log_trace("sensor %d received Buffer: %s", i, debugBuf);
+			log_trace("sensor %d received Buffer: %s", i, hexmsg);
 			// end debug
 
 			
@@ -584,52 +621,49 @@ void close_serial_connections(SensorCommOperation *sensorCommArray,
 *
 * @return void
 */
-void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, int length)
+void log_SensorCommOperation_data(const SensorCommOperation *sco)
 {
-	for(int i = 0; i < length; ++i){
+	char hexReadBuf[3*READ_MESSAGE_LENGTH_BYTES+1];
+	char hexReadCompletedBuf[3*READ_MESSAGE_LENGTH_BYTES+1];
+	char hexWriteBuf[3*WRITE_MESSAGE_LENGTH_BYTES+1];
 
-		char tempReadBuf[MESSAGE_LENGTH_BYTES+1];
-		char tempReadCompletedBuf[MESSAGE_LENGTH_BYTES+1];
-		char tempWriteBuf[MESSAGE_LENGTH_BYTES+1];
+	convert_array_to_hex_string(hexReadBuf, 3*READ_MESSAGE_LENGTH_BYTES+1, 
+		sco->commState.readBuffer, READ_MESSAGE_LENGTH_BYTES);
 
-		convert_array_to_hex_string(tempReadBuf, MESSAGE_LENGTH_BYTES+1, 
-			sensorCommArray[i].commState.readBuffer, MESSAGE_LENGTH_BYTES);
+	convert_array_to_hex_string(hexReadCompletedBuf, 3*READ_MESSAGE_LENGTH_BYTES+1, 
+		sco->commState.readCompletedBuffer, READ_MESSAGE_LENGTH_BYTES);
 
-		convert_array_to_hex_string(tempReadCompletedBuf, MESSAGE_LENGTH_BYTES+1, 
-			sensorCommArray[i].commState.readCompletedBuffer, MESSAGE_LENGTH_BYTES);
-
-		convert_array_to_hex_string(tempWriteBuf, MESSAGE_LENGTH_BYTES+1, 
-			sensorCommArray[i].commState.writeBuffer, MESSAGE_LENGTH_BYTES);
+	convert_array_to_hex_string(hexWriteBuf, 3*WRITE_MESSAGE_LENGTH_BYTES+1, 
+		sco->commState.writeBuffer, WRITE_MESSAGE_LENGTH_BYTES);
 
 
-        log_trace("\n\tsensor - \n"
-        	"\tid: %d, name: %s, active: %d\n"
-        	"\tdevice path: %s, baud rate: %d\n"
-        	"\tstate -\n"
-        	"\tostate: %s, fd: %d\n"
-        	"\treadIndex: %s, readState: %d, readCompletedState: %d \n"
-        	"\twriteIndex: %s, writeState: %d\n"
-        	"note: printing entire contents of buffer, may contain garbage\n"
-        	"\tdepending on operational state, as well as read/write Index\n"
-        	"\treadBuffer: %s\n"
-        	"\treadCompletedBuffer: %s\n"
-        	"\twriteBuffer: %s\n",
+    log_trace("\n\tsensor - \n"
+    	"\tid: %d, name: %s, active: %d\n"
+    	"\tdevice path: %s, baud rate: %d\n"
+    	"\tstate -\n"
+    	"\tostate: %s, fd: %d\n"
+    	"\treadIndex: %s, readState: %d, readCompletedState: %d \n"
+    	"\twriteIndex: %s, writeState: %d\n"
+    	"note: printing entire contents of buffer, may contain garbage\n"
+    	"\tdepending on operational state, as well as read/write Index\n"
+    	"\treadBuffer: %s\n"
+    	"\treadCompletedBuffer: %s\n"
+    	"\twriteBuffer: %s\n",
 
-            sensorCommArray[i].sensor.id, 
-            sensorCommArray[i].sensor.name,
-            sensorCommArray[i].sensor.active, 
-            sensorCommArray[i].sensor.devicePath,
-            sensorCommArray[i].sensor.baudRate,
-            debug_operational_state_string[sensorCommArray[i].commState.ostate],
-            sensorCommArray[i].commState.fd,
-            debug_read_write_message_state_string[sensorCommArray[i].commState.readIndex],
-            sensorCommArray[i].commState.readState,
-            sensorCommArray[i].commState.readCompletedState,
-            debug_read_write_message_state_string[sensorCommArray[i].commState.writeIndex],
-            sensorCommArray[i].commState.writeState,
-            tempReadBuf,
-            tempReadCompletedBuf,
-            tempWriteBuf);
+        sco->sensor.id, 
+        sco->sensor.name,
+        sco->sensor.active, 
+        sco->sensor.devicePath,
+        sco->sensor.baudRate,
+        debug_operational_state_string[sco->commState.ostate],
+        sco->commState.fd,
+        debug_read_write_message_state_string[sco->commState.readIndex],
+        sco->commState.readState,
+        sco->commState.readCompletedState,
+        debug_read_write_message_state_string[sco->commState.writeIndex],
+        sco->commState.writeState,
+        hexReadBuf,
+        hexReadCompletedBuf,
+        hexWriteBuf);
 
-    }
 }

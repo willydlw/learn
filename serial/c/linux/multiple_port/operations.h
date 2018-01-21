@@ -65,6 +65,9 @@ void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCo
 uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *readfds);
 
 
+uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *writefds);
+
+
 ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag);
 
@@ -86,18 +89,16 @@ void close_serial_connections(SensorCommOperation *sensorCommArray,
 
 
 
-/* @brief Logs the state of every data member in the sensorCommArray.
+/* @brief Logs the state of every data member in the sensorCommOperation object
 *         
 *		  Log trace level
 *
 *         Buffer contents are written as a hexadecimal string
 *
-* @param[in] sensorCommArray		array of sensor communication operation structures
-* @param[in] length                 number of elements in sensorCommArray
+* @param[in] sensorCommArray		sensor communication operation structure
 *
 * @return void
 */
-void log_SensorCommOperation_data(const SensorCommOperation *sensorCommArray, 
-		int length);
+void log_SensorCommOperation_data(const SensorCommOperation *sco);
 
 #endif

@@ -173,10 +173,7 @@ int main(int argc, char **argv){
     log_trace("active sensor count: %2d", activeSensorCount);
     log_trace("serial ports opened: %2d\n", serialPortsOpened);
 
-    log_SensorCommOperation_data(sensorCommArray, 
-        totalSensorCount);
-    
-
+      
 
     // find the file descriptor with the largest value
     // Note that we are only finding this value once, with the
@@ -238,7 +235,12 @@ int main(int argc, char **argv){
             completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
             process_completed_messages(sensorCommArray, totalSensorCount, completedList);
 
+            /******
+
             call process operational state from here instead of process_completed_messages ???
+
+            ?????
+            */
 
         }
             
@@ -246,8 +248,11 @@ int main(int argc, char **argv){
 
             write_fdset(sensorCommArray, totalSensorCount, &writefds);
 
+            /***** ??????????????????
             call process operational state here or do we to form a completed list like above
             and let process_completed_messages handle it??
+
+            ????????????*/
 
         }
     } // end while(1)
