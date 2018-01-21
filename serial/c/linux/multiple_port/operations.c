@@ -488,29 +488,42 @@ void process_operational_state(SensorCommOperation *sco)
 	switch(sco->commState.ostate)
 	{
 		case WAIT_FOR_CONNECTION:
+			// checking readCompletedState is redundant
+			// should not be here unless that were true
+		    // after sufficient testing, may want to remove
+		    // this check to speed execution
+			if(sco->commState.readCompletedState == true){
 
-			// processing the message we read, need to reset readCompletedState
-			// to indicate it had been processed
-			sco->commState.readCompletedState = false;
-			
-			// verify expected message was received before transitioning to next state
-			if( strcmp((char*)sco->commState.readCompletedBuffer, helloMessage) == 0){
-				sco->commState.ostate = ACKNOWLEDGE_CONNECTION;
-				sco->commState.readState = false;
-				sco->commState.writeState = true;
-				// load acknowledge message into write buffer
-				strcpy((char*)sco->commState.writeBuffer, ackResponse);
+				// processing the message we read, need to reset readCompletedState
+				// to indicate it had been processed
+				sco->commState.readCompletedState = false;
+				
+				// verify expected message was received before transitioning to next state
+				if( strcmp((char*)sco->commState.readCompletedBuffer, helloMessage) == 0){
+					sco->commState.ostate = ACKNOWLEDGE_CONNECTION;
+					sco->commState.readState = false;
+					sco->commState.writeState = true;
+					// load acknowledge message into write buffer
+					strcpy((char*)sco->commState.writeBuffer, ackResponse);
+				}
+				else{
+					// log error, do not change state
+					char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
+					convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
+							sco->commState.readCompletedBuffer, 
+							READ_MESSAGE_LENGTH_BYTES);
+
+					log_error("operational state: %s, expected: %s, received: %s",
+						debug_operational_state_string[sco->commState.ostate],
+						helloMessageHEX, hexmsg);
+				}
 			}
 			else{
-				// log error, do not change state
-				char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
-				convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
-						sco->commState.readCompletedBuffer, 
-						READ_MESSAGE_LENGTH_BYTES);
+				log_error("operational state: %s, readCompletedState is false, "
+					"when it should have been true, data contents logged below", 
+					debug_operational_state_string[sco->commState.ostate]);
 
-				log_error("operational state: %s, expected: %s, received: %s",
-					debug_operational_state_string[sco->commState.ostate],
-					helloMessageHEX, hexmsg);
+				log_SensorCommOperation_data(sco);
 			}
 			break;
 
@@ -525,23 +538,130 @@ void process_operational_state(SensorCommOperation *sco)
 			}
 			else{
 
-				log_debug("operational state: %s, writeCompletedState is false, logging data values below",
+				log_debug("operational state: %s, writeCompletedState is false, data contents below",
 					debug_operational_state_string[sco->commState.ostate]);
 				log_SensorCommOperation_data(sco);
 			}
 			break;
 
 		case WAIT_FOR_SENSOR_ID:
-		log_fatal("WAIT_FOR_SENSOR_ID not programmed");
-		break;
+			if(sco->commState.readCompletedState == true){
+
+				sco->commState.readCompletedState = false;
+
+				// extract the sensor id from the message received
+				// data bytes one and two
+				int sid;
+				int msb, lsb;
+
+				// data byte one is most significant bit
+				msb = sco->commState.readCompletedBuffer[DATA_BYTE_ONE] << 8;
+
+				// data byte two is least significant bit
+				lsb = sco->commState.readCompletedBuffer[DATA_BYTE_TWO];
+				sid = msb | lsb;
+
+				// verify the sensor id sent matches the one that was registered
+				// in the initialization process
+				if(sco->sensor.id == sid){
+					log_trace("success, sensor id match, id: %s", sid);
+					sco->commState.ostate = SENSOR_REGISTRATION_COMPLETE;
+					sco->commState.readState = false;
+					sco->commState.writeState = true;
+				}
+				else{
+					log_error("operational state: %s, sensor id mismatch, expected: %d, received: %d",
+								debug_operational_state_string[sco->commState.ostate], 
+								sco->sensor.id, sid);
+				}
+			}
+			else{
+
+				log_error("operational state: %s, readCompletedState is false, "
+					"when it should have been true, data contents logged below", 
+					debug_operational_state_string[sco->commState.ostate]);
+
+				log_SensorCommOperation_data(sco);
+			}
+
+			break;
+
 		case SENSOR_REGISTRATION_COMPLETE:
-		log_fatal("SENSOR_REGISTRATION_COMPLETE not programmed");
-		break;
+
+			if(sco->commState.writeCompletedState == true){
+
+				log_trace("success, sensor registration complete");
+
+				// after transmitting ack response, the next operational
+				// state is waiting to receive the sensor id from the device
+				sco->commState.ostate = RECEIVE_SENSOR_DATA;
+				sco->commState.writeState = false;
+				sco->commState.readState = true;
+				sco->commState.writeCompletedState = false;	
+			}
+			else{
+
+				log_debug("operational state: %s, writeCompletedState is false, data contents below",
+					debug_operational_state_string[sco->commState.ostate]);
+				log_SensorCommOperation_data(sco);
+			}
+			break;
+
 		case RECEIVE_SENSOR_DATA:
-		log_fatal("RECEIVE_SENSOR_DATA not programmed");
-		break;
+
+			// checking readCompletedState is redundant
+			// should not be here unless that were true
+		    // after sufficient testing, may want to remove
+		    // this check to speed execution
+			if(sco->commState.readCompletedState == true){
+
+				log_trace("success, received device data");
+
+
+				// processing the message we read, need to reset readCompletedState
+				// to indicate it had been processed
+				sco->commState.readCompletedState = false;
+				
+				// remain in the same state
+				// sco->commState.ostate = RECEIVE_SENSOR_DATA;
+				
+				// readState remains true, writeState is false
+				sco->commState.readState = true;
+				sco->commState.writeState = false;
+
+
+				// extract the sensor id from the message received
+				// data bytes one and two
+				int deviceData;
+				int msb, lsb;
+
+				// data byte one is most significant bit
+				msb = sco->commState.readCompletedBuffer[DATA_BYTE_ONE] << 8;
+
+				// data byte two is least significant bit
+				lsb = sco->commState.readCompletedBuffer[DATA_BYTE_TWO];
+				deviceData = msb | lsb;
+
+				log_trace("device: %s, device data received %d", 
+					sco->sensor.name, deviceData);
+
+				log_warn("Next programming step, write code to deal with the sensor data\n");
+	
+			}
+			else{
+				log_error("operational state: %s, readCompletedState is false, "
+					"when it should have been true, data contents logged below", 
+					debug_operational_state_string[sco->commState.ostate]);
+
+				log_SensorCommOperation_data(sco);
+			}
+			break;
+
 		case NOT_OPERATIONAL:
-			log_fatal("NOT_OPERATIONAL not programmed");
+
+			log_fatal("NOT_OPERATIONAL not programmed, logging data contents below");
+			log_SensorCommOperation_data(sco);
+
 		break;
 	}
 

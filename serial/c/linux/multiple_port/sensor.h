@@ -17,7 +17,7 @@ extern const char sensorNameList[SENSOR_LIST_LENGTH][SENSOR_NAME_LENGTH];
 
 
 typedef struct sensor_t{
-	uint8_t id;
+	int id;
 	int active;
 	int baudRate;
 	char name[SENSOR_NAME_LENGTH];
