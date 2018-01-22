@@ -4,22 +4,29 @@
 const uint8_t MAX_RECEIVE_MESSAGE_LENGTH = 16;
 
 // request messages
-const char* readyCommand = "<RDY>";
 const char* resetCommand = "<RST>";
 const char* stopCommand = "<STP>";
 
-// response messages
-const char* ackResponse = "<ACK>";
-const char* nackResponse = "<NCK>";
 
-
-/** When another program opens the serial
+/* When another program opens the serial
     connection, the Arduino program resets.
 
     This message is broadcast to confirm
     the connection has been made.
-**/
+*/
 const char* helloMessage = "<HLO>";
+
+
+/* Wait to receive this message after
+    hello message has been transmitted
+*/
+const char* ackMessage = "<ACK>";
+
+
+/* Wait to receive this message after
+    sensor id has been transmitted
+*/
+const char* readyMessage = "<RDY>";
 
 
 
@@ -42,14 +49,5 @@ enum class ReceiveMessageState{
 				RECEIPT_COMPLETE
 };
 
-
-enum class SENSOR_COMM_STATE{  
-
-				INITIAL = 1, 
-				WAIT = 2, 
-				SEND_COUNT = 3, 
-				RESET = 4, 
-				END = 5
-};
 
 #endif

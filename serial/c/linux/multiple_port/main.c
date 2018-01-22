@@ -149,6 +149,9 @@ int main(int argc, char **argv){
     // bits set to one represent sensor with complete message received
     uint32_t completedList = 0;  
 
+    // loop variables
+    int i;
+
     
 
     if(argc < MIN_NUMBER_COMMAND_LINE_ARGS){
@@ -162,7 +165,7 @@ int main(int argc, char **argv){
     // show all messages at console level, 
     // do not write any to a file
     // color on
-    log_init(LOG_TRACE, LOG_OFF, 1);
+    log_init(LOG_TRACE, LOG_TRACE, 1);
 
 
     serialPortsOpened = initialize_sensor_communication_operations(argv[1], 
@@ -172,6 +175,18 @@ int main(int argc, char **argv){
     log_trace("totalSensorCount:    %2d", totalSensorCount);
     log_trace("active sensor count: %2d", activeSensorCount);
     log_trace("serial ports opened: %2d\n", serialPortsOpened);
+
+
+    if(serialPortsOpened < 0){
+        log_fatal("no serial ports opened, program terminating");
+        return 1;
+    }
+
+    if(serialPortsOpened < activeSensorCount){
+        log_fatal("serialPortsOpened: %d, activeSensorCount %d, program terminating"
+            "\nAdd code to try to recover");
+        return 1;
+    }
 
       
 
@@ -211,8 +226,10 @@ int main(int argc, char **argv){
         build_fd_sets(sensorCommArray, totalSensorCount, &readCount, &writeCount,
                     &readfds, &writefds);
 
-        //selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, &empty_mask);
-        selectReturn = pselect(maxfd, &readfds, NULL, NULL, &timeout, NULL);
+        log_trace("readCount: %d, writeCount: %d", readCount, writeCount);
+
+        //selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, &empty_mask);
+        selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, NULL);
     
         log_trace("\nnumber of fd pending, selectReturn: %d\n", selectReturn);
 
@@ -235,7 +252,7 @@ int main(int argc, char **argv){
             completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
 
             // process each completed task in the array
-            for(int i = 0; i < totalSensorCount; ++i){
+            for(i = 0; i < totalSensorCount; ++i){
                 log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
 
                 // array index location is the same as the sensor id
@@ -247,13 +264,17 @@ int main(int argc, char **argv){
                 }
             }
         }
+
+
+       
+        
             
         if(writeCount > 0){
 
             completedList = write_fdset(sensorCommArray, totalSensorCount, &writefds);
 
             // process each completed task in the array
-            for(int i = 0; i < totalSensorCount; ++i){
+            for(i = 0; i < totalSensorCount; ++i){
                 log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
 
                 // array index location is the same as the sensor id
@@ -265,7 +286,7 @@ int main(int argc, char **argv){
                 }
             }
         }
-        
+
     } // end while(1)
       
     

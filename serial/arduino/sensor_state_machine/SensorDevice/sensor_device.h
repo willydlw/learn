@@ -13,7 +13,7 @@ const int SENSOR_LIST_LENGTH = 5;
 const uint8_t sensorIdList[SENSOR_LIST_LENGTH] = {0x00, 0x01, 0x02, 0x03, 0x04};
 
 const char sensorNameList[SENSOR_LIST_LENGTH][SENSOR_NAME_LENGTH] = 
-	{ "unused", "tachometer1", "tachometer2", "tachometer3", "tachometer4"};
+	{ "sensor0", "sensor1", "sensor2", "sensor3", "sensor4"};
 
 
 struct Sensor{
@@ -23,11 +23,9 @@ struct Sensor{
 
 
 enum class OperationalState{
-	INITIAL, WAIT, SENSE, RESET, STOP};
+	INITIAL, SEND_SENSOR_ID, SENSE, RESET, STOP};
 
 
-
-void funa(void);
 
 
 #endif

@@ -37,7 +37,7 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 
 
 void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
-		int *unopenedList, int numUnopened);
+		int *unopenedList, int numUnopened, int *activeSensorCount);
 
 
 void initialize_communication_states(SensorCommOperation *sensorCommArray, 
