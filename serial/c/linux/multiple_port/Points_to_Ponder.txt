@@ -1,0 +1,130 @@
+Software: Centralized Serial Communication
+
+Purpose: 
+	Serve as a centralized point of communication for all
+    to receive data from other microcontrollers and transmit
+    that data to the appropriate program/function for further
+    processing.
+
+
+Program Operation:
+
+	This software was designed to work with multiple serial
+	connections. It will work with one or connected devices.
+	At design time, it was anticipated that as many as 32 devices
+	may be connected. 
+
+	To create the serial connection with another device, the 
+	baud rate and device path name must be known. This information
+	is acquired by reading an input file at program start up.
+
+	The input file contains the following:
+		- device id
+		- device name
+		- baud rate
+		- device path name 
+		- active / non-active state
+
+		The device id will be used to determine where the received
+		data should be transmitted for further processing. 
+
+		The device name is useful for data logging. 
+
+		The baud rate is needed as both devices must transmit and
+		receive at the same rate to ensure data is correctly interpreted.
+
+		The device path name is used to open the connection.
+
+		The active state information allows a device to be listed
+		in the input file, but be set as inactive if it is malfunctioning
+		or not part of the system being tested. The rationale is that
+		when the entire system is running, the file will contain all 
+		the devices. If something goes wrong during testing, the 
+		malfunctioning device can be set as inactive and the program
+		will not try to establish communication with the device. 
+
+	
+	After reading the device input file, serial connections are opened
+	with each active device. Establishing serial connections requires
+	opening a file to access the stream of information from the specified
+	device path. This results in the assignment of a file descriptor.
+
+	A set of communication states must be maintained for each device.
+	The communication state information includes the following:
+		Operational State 
+		Message State
+		File Descriptor
+		Read State
+		Write State
+
+
+	Operational states:
+		WAIT_FOR_CONNECTION 
+		ACKNOWLEDGE_CONNECTION
+		WAIT_FOR_SENSOR_ID
+		SENSOR_REGISTRATION_COMPLETE
+		RECEIVE_SENSOR_DATA
+		NOT_OPERATIONAL
+
+	Message States:
+		AWAITING_START_MARKER
+		AWAITING_SENSOR_ID
+		AWAITING_DATA_BYTE_ONE
+		AWAITING_DATA_BYTE_TWO
+		AWAITING_DATA_BYTE_THREE
+		AWAITING_END_MARKER 
+		MESSAGE_COMPLETE 
+		NOT_COMMUNICATING
+
+
+	After serial connections are opened for all devices, each device
+	is in the wait for connection state. The device remains in this
+	state until the hello message is received.
+
+
+	 
+
+
+Points to ponder
+
+1. Is the device active state necessary? 
+
+	a. Scenario: during competition testing, one of the devices
+	   is malfunctioning. Is it better to just remove that
+	   device entry from the input file, so that the file
+	   only ever contains active devices, or is it better to
+	   keep that entry in the file, simply changing state
+	   from active to inactive.
+
+	b. Scenario: only one small subsystem is being tested.
+	   The master input file contains 32 devices, but only
+	   3 of those being tested are active. Do we mark 29
+	   as inactive? No, create an input file that only 
+	   contains the 3 devices under test. Obviously, they
+	   are all active. The active field then only causes
+	   unecessary extra programming steps and uses extra
+	   memory space.
+
+	c. The active state was added as a consideration of
+	   information that may or may not be useful. The users
+	   of this software will have to determine if this
+	   is a useful feature. If not, it should be removed
+	   to slightly simplify processing.
+
+	d. Where is it used in processing? 
+		i. When opening the serial port connection. Checks
+		   the active state and only tries to connect
+		   to active devices. This is performed once at
+		   startup. Act
+
+		ii. Repeatedly during program execution. Every time
+		    the main loop runs, the active
+
+	   
+
+2. What happens when we cannot open a serial connection to all 
+   active devices?
+
+3. Do we stay in the Operational WAIT_FOR_CONNECTION  state 
+   until receiving a hello message from all connected devices?
+
