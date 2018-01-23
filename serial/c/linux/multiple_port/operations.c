@@ -69,14 +69,6 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 	/* TODO: write routine to attempt to open active devices that failed
 	         to open serial connection
 	*/
-	log_warn("function has been coded to set fd to -1 for unopened connections "
-			 "and set active status to 0");
-
-	log_warn("TODO: write code to try to recover and open connections for all "
-		"devices listed as active");
-
-	log_warn("finish function by writing code to search dev directory"
-					" and try connecting to those tty devices\n");
 
 	if(numUnopened == 0){
 		log_info("all serial connections for active devices opened\n");
@@ -95,6 +87,16 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 			*activeSensorCount -= 1;   // decrement count
 		}
 	}
+
+
+	log_warn("function has been coded to set fd to -1 for unopened connections "
+			 "and set active status to 0");
+
+	log_warn("TODO: write code to try to recover and open connections for all "
+		"devices listed as active");
+
+	log_warn("finish function by writing code to search dev directory"
+					" and try connecting to those tty devices\n");
 	
 }
 
@@ -347,10 +349,34 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
 
     	log_trace("bytesWritten: %d", bytesWritten);
 
-    	if(bytesWritten == (ssize_t)bytesToWrite){
+    	// update the write index
+    	// Important when the bytesWritten differ from the bytesToWrite
+    	sensorCommArray[i].commState.writeIndex += bytesWritten;
+
+    	log_trace("updated value of sensorCommArray[%ld].commState.writeIndex: %d",
+    				i, sensorCommArray[i].commState.writeIndex);
+
+    	/* Example: writeIndex is 0
+    				WRITE_MESSAGE_LENGTH_BYTES is 5
+    				writeBuffer length is always same as WRITE_MESSAGE_LENGTH_BYTES
+    				If all 5 bytes are written, then writeIndex + bytesWritten = 5
+    				5 is beyond the array boundary, means the entire message was written
+		*/
+    	if(sensorCommArray[i].commState.writeIndex >= WRITE_MESSAGE_LENGTH_BYTES){
+
+    		sensorCommArray[i].commState.writeIndex = 0;      // reset to start
+    		log_trace("entire message was sent, updated value of sensorCommArray[%ld].commState.writeIndex: %d",
+    				i, sensorCommArray[i].commState.writeIndex);
+
+    		sensorCommArray[i].commState.writeCompletedState = true;
+
+    		log_trace("updated writeCompletedState to true");
 
     		// use sensor id to set corresponding bit to 1
         	completedList |= (uint32_t)(1 << sensorCommArray[i].sensor.id);
+
+        	log_trace("added sensor id: %d to completed list", sensorCommArray[i].sensor.id);
+
     	}
     }
 
@@ -517,12 +543,12 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.readCompletedBuffer,
 				READ_MESSAGE_LENGTH_BYTES);
 				
-			log_trace("sensor %d message received: %s\n", sco->sensor.id, hexmsg);
+			log_trace("sensor id: %d, message received: %s\n", sco->sensor.id, hexmsg);
 
 	}
 
 	if(sco->commState.writeState == true){
-		log_trace("sensor %d completed writing message\n", sco->sensor.id);
+		log_trace("sensor id: %d, completed writing message\n", sco->sensor.id);
 	}
 	// end debug
 
