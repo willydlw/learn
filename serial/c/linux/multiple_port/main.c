@@ -177,7 +177,7 @@ int main(int argc, char **argv){
     log_trace("serial ports opened: %2d\n", serialPortsOpened);
 
 
-    if(serialPortsOpened < 0){
+    if(serialPortsOpened < 1){
         log_fatal("no serial ports opened, program terminating");
         return 1;
     }
@@ -253,12 +253,15 @@ int main(int argc, char **argv){
 
             // process each completed task in the array
             for(i = 0; i < totalSensorCount; ++i){
-                log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
+                
 
                 // array index location is the same as the sensor id
                 // bit mask is 1 << i
                 if( (completedList & (uint32_t)(1 << i)) ){
-                    
+
+                    log_trace("sensor id: %d in completedList: %#x, (1 << %d): %#x", 
+                        sensorCommArray[i].sensor.id, completedList, i, 1 << i);
+
                     process_operational_state(&sensorCommArray[i]);
                     
                 }
@@ -275,12 +278,14 @@ int main(int argc, char **argv){
 
             // process each completed task in the array
             for(i = 0; i < totalSensorCount; ++i){
-                log_trace("completedList: %#x, (i << %d): %#x", completedList, i, 1 << i);
-
+                
                 // array index location is the same as the sensor id
                 // bit mask is 1 << i
                 if( (completedList & (uint32_t)(1 << i)) ){
-                    
+
+                    log_trace("sensor id: %d in completedList: %#x, (1 << %d): %#x", 
+                        sensorCommArray[i].sensor.id, completedList, i, 1 << i);
+
                     process_operational_state(&sensorCommArray[i]);
                     
                 }

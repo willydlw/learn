@@ -97,7 +97,7 @@ void setup(){
   sendDataBuffer[1] = sensor.sensor_id;
   sendDataBuffer[4] = endMarker;
 
-  count = 0;
+  count = 256;
 
   delay(100);
   Serial.write(helloMessage);
@@ -173,9 +173,9 @@ void loop(){
         //Serial.println("operational state: SEND_SENSOR_ID");
         // simulate sensor data with a count
         sendDataBuffer[2] = (byte)(count >> 8);  // msb
-        sendDataBuffer[3] = (byte)count;         // lsb
+        sendDataBuffer[3] = (byte)count;        // lsb
     
-        Serial.write(sendDataBuffer, 5);
+        Serial.write(sendDataBuffer, 5);     
       
         count++;
         startTime = millis();
@@ -227,9 +227,6 @@ void serialEvent(){
     
     char readByte = (char)Serial.read();  // read returns int
 
-    Serial.print("serialEvent, readByte: ");
-    Serial.println(readByte);
-    
     switch(rxmsgState){
       
       case ReceiveMessageState::AWAIT_RECEIPT:

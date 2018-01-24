@@ -179,11 +179,15 @@ ssize_t read_message(int fd, fd_set readfds, uint8_t *buf)
         // message. 
         bytes_read = serial_read(fd, buf, READ_MESSAGE_LENGTH_BYTES );
 
+        for(int j = 0; j < bytes_read; ++j){
+            log_trace("buf[%d] %hhu", j, buf[j]);
+        }
+
         // debug
         char debugBuffer[3*bytes_read + 1];
         convert_array_to_hex_string(debugBuffer, 3*bytes_read+1, buf, bytes_read);
 
-        log_trace("bytes_read: %ld, bytes: %s\n", bytes_read, debugBuffer);
+        log_trace("bytes_read: %ld, debugBuffer: %s\n", bytes_read, debugBuffer);
 
         // end debug
         

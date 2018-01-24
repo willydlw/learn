@@ -51,8 +51,15 @@ int initialize_sensor_communication_operations(
 		}
 	}
 
-	handle_failed_serial_connections(sensorCommArray, unopenedList, 
+	if(unopenedIndex > 0){
+
+		handle_failed_serial_connections(sensorCommArray, unopenedList, 
 		unopenedIndex, activeSensorCount);
+	}
+	else{
+		log_info("all serial connections for active devices opened");
+	}
+	
 
 	// now initialize the communication states 
 	initialize_communication_states(sensorCommArray, *totalSensorCount);
@@ -69,11 +76,6 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 	/* TODO: write routine to attempt to open active devices that failed
 	         to open serial connection
 	*/
-
-	if(numUnopened == 0){
-		log_info("all serial connections for active devices opened\n");
-		return;
-	}
 
 	for(int i = 0; i < numUnopened; ++i){
 
@@ -484,7 +486,8 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 					++readIndex;						// becomes AWAITING_SENSOR_ID
 				}
 				else { 
-					log_warn("state: AWAITING_START_MARKER, source[%ld]: %#x\n", i, source[i]);
+					log_warn("state: %s, source[%ld]: %#x\n", 
+						debug_read_write_message_state_string[readIndex], i, source[i]);
 				}
 				break;
 
@@ -503,12 +506,13 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 					*completedFlag = true;					// full message received
 				}
 				else{
+
 					char hexmsg[3*readIndex+1];
 
 					convert_array_to_hex_string(hexmsg, 3*readIndex+1, destination, readIndex);
 
 					log_warn("expecting end marker value %#x, received: %#x"
-						"discarding %s" , end_marker, i, source[i], hexmsg); 
+						"discarding %s" , end_marker, source[i], hexmsg); 
 				}
 
 				readIndex = START_MARKER;
@@ -562,15 +566,13 @@ void process_operational_state(SensorCommOperation *sco)
 		    // this check to speed execution
 			if(sco->commState.readCompletedState == true){
 
-				log_trace("readCompletedState true");
-
 				// processing the message we read, need to reset readCompletedState
 				// to indicate it had been processed
 				sco->commState.readCompletedState = false;
 				
 				// verify expected message was received before transitioning to next state
 				if( strcmp((char*)sco->commState.readCompletedBuffer, helloMessage) == 0){
-					log_trace("success, helloMessage recognized");
+					log_trace("SUCCESS, helloMessage recognized\n");
 					sco->commState.ostate = ACKNOWLEDGE_CONNECTION;
 					log_trace("operational state changed to %s", debug_operational_state_string[sco->commState.ostate]);
 					sco->commState.readState = false;
@@ -602,12 +604,15 @@ void process_operational_state(SensorCommOperation *sco)
 
 		case ACKNOWLEDGE_CONNECTION:
 			if(sco->commState.writeCompletedState == true){
+
 				// after transmitting ack response, the next operational
 				// state is waiting to receive the sensor id from the device
 				sco->commState.ostate = WAIT_FOR_SENSOR_ID;
 				sco->commState.writeState = false;
 				sco->commState.readState = true;
 				sco->commState.writeCompletedState = false;	
+
+				log_trace("operational state changed to %s", debug_operational_state_string[sco->commState.ostate]);
 			}
 			else{
 
@@ -622,28 +627,46 @@ void process_operational_state(SensorCommOperation *sco)
 
 				sco->commState.readCompletedState = false;
 
-				// extract the sensor id from the message received
-				// data bytes one and two
-				uint8_t sid;
-				
+				// is this the id message
+				if(sco->commState.readCompletedBuffer[2] == 'i' &&
+					sco->commState.readCompletedBuffer[3] == 'd'){
 
-				// sensor id contained in data byte one
-				sid = sco->commState.readCompletedBuffer[DATA_BYTE_ONE];
-				
+					log_trace("received characters id");
 
-				// verify the sensor id sent matches the one that was registered
-				// in the initialization process
-				if(sco->sensor.id == sid){
-					log_trace("success, sensor id match, id: %s", sid);
-					sco->commState.ostate = SENSOR_REGISTRATION_COMPLETE;
-					sco->commState.readState = false;
-					sco->commState.writeState = true;
+					// extract the sensor id from the message received
+					// data bytes one and two
+					uint8_t sid;
+					
+					// sensor id contained in data byte one
+					sid = sco->commState.readCompletedBuffer[DATA_BYTE_ONE];
+					
+					// verify the sensor id sent matches the one that was registered
+					// in the initialization process
+					if(sco->sensor.id == sid){
+						log_trace("SUCCESS, sensor id match, id: %s", sid);
+						sco->commState.ostate = SENSOR_REGISTRATION_COMPLETE;
+						sco->commState.readState = false;
+						sco->commState.writeState = true;
+					}
+					else{
+						log_error("operational state: %s, sensor id mismatch, expected: %d, received: %d",
+									debug_operational_state_string[sco->commState.ostate], 
+									sco->sensor.id, sid);
+					}
 				}
 				else{
-					log_error("operational state: %s, sensor id mismatch, expected: %d, received: %d",
-								debug_operational_state_string[sco->commState.ostate], 
-								sco->sensor.id, sid);
+
+					char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
+					convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
+							sco->commState.readCompletedBuffer, 
+							READ_MESSAGE_LENGTH_BYTES);
+
+					log_warn("current state: %s, expected id message <%did>, received: %s\n",
+						debug_operational_state_string[sco->commState.ostate],
+						sco->sensor.id, hexmsg);
 				}
+
+				
 			}
 			else{
 
@@ -685,9 +708,6 @@ void process_operational_state(SensorCommOperation *sco)
 		    // this check to speed execution
 			if(sco->commState.readCompletedState == true){
 
-				log_trace("success, received device data");
-
-
 				// processing the message we read, need to reset readCompletedState
 				// to indicate it had been processed
 				sco->commState.readCompletedState = false;
@@ -702,18 +722,26 @@ void process_operational_state(SensorCommOperation *sco)
 
 				// extract the sensor id from the message received
 				// data bytes one and two
-				int deviceData;
-				int msb, lsb;
+				uint16_t deviceData, sensorData;
+				uint8_t msb, lsb;
 
 				// data byte one is most significant bit
-				msb = sco->commState.readCompletedBuffer[DATA_BYTE_TWO] << 8;
+				msb = sco->commState.readCompletedBuffer[DATA_BYTE_TWO];
 
 				// data byte two is least significant bit
 				lsb = sco->commState.readCompletedBuffer[DATA_BYTE_THREE];
-				deviceData = msb | lsb;
 
-				log_trace("device: %s, device data received %d", 
+				deviceData = (uint16_t)((msb << 8) | lsb);
+
+				sensorData = (uint16_t)(((uint16_t)sco->commState.readCompletedBuffer[DATA_BYTE_TWO] << 8U) |
+                                        ((uint16_t)sco->commState.readCompletedBuffer[DATA_BYTE_THREE] & 0xFF) );
+
+				log_trace("msb: %hhx, lsb: %hhx, deviceData: %hx")
+
+				log_info("success, device: %s, device data received %hx", 
 					sco->sensor.name, deviceData);
+
+				log_trace("sensorData: %u", sensorData);
 
 				log_warn("Next programming step, write code to deal with the sensor data\n");
 	
