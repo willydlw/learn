@@ -55,14 +55,15 @@ const char* debug_error_condition_string[] = {
           here and in sensor_coummunication.h
 */
 
-// request messages
-const char* readyCommand = "<RDY>";
+// messages transmitted
+
 const char* resetCommand = "<RST>";
 const char* stopCommand = "<STP>";
 
-// response messages
+
 const char* ackResponse = "<ACK>";
 const char* nackResponse = "<NCK>";
+const char* readyResponse = "<RDY>";
 
 
 /** When another program opens the serial

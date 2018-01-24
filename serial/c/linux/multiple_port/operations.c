@@ -647,6 +647,7 @@ void process_operational_state(SensorCommOperation *sco)
 						sco->commState.ostate = SENSOR_REGISTRATION_COMPLETE;
 						sco->commState.readState = false;
 						sco->commState.writeState = true;
+						strcpy((char*)sco->commState.writeBuffer, readyResponse);
 					}
 					else{
 						log_error("operational state: %s, sensor id mismatch, expected: %d, received: %d",
@@ -654,7 +655,7 @@ void process_operational_state(SensorCommOperation *sco)
 									sco->sensor.id, sid);
 					}
 				}
-				else{
+				else{   // die not receive id characters in message
 
 					char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
 					convert_array_to_hex_string(hexmsg, 3*READ_MESSAGE_LENGTH_BYTES+1, 
@@ -665,8 +666,6 @@ void process_operational_state(SensorCommOperation *sco)
 						debug_operational_state_string[sco->commState.ostate],
 						sco->sensor.id, hexmsg);
 				}
-
-				
 			}
 			else{
 

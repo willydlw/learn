@@ -55,14 +55,15 @@ extern const char* debug_read_write_message_state_string[];
 extern const char* debug_error_condition_string[];
 
 
-// command messages transmitted to other program
-extern const char* readyCommand;
+// messages transmitted to other program
+extern const char* ackResponse;					// acknowledge message received, command implemented
+extern const char* nackResponse;				// nack - not acknowledge
+extern const char* readyResponse;
 extern const char* resetCommand;
 extern const char* stopCommand;
 
 // response messages received from other program
-extern const char* ackResponse;					// acknowledge message received, command implemented
-extern const char* nackResponse;				// nack - not acknowledge
+
 extern const char* helloMessage;				// confirms connection
 extern const char* helloMessageHEX;				// hexadecimal string of helloMessage character values
 
