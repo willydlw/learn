@@ -643,7 +643,7 @@ void process_operational_state(SensorCommOperation *sco)
 					// verify the sensor id sent matches the one that was registered
 					// in the initialization process
 					if(sco->sensor.id == sid){
-						log_trace("SUCCESS, sensor id match, id: %s", sid);
+						log_trace("SUCCESS, sensor id match, id: %d", sid);
 						sco->commState.ostate = SENSOR_REGISTRATION_COMPLETE;
 						sco->commState.readState = false;
 						sco->commState.writeState = true;

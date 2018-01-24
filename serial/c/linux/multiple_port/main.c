@@ -268,10 +268,7 @@ int main(int argc, char **argv){
             }
         }
 
-
-       
-        
-            
+ 
         if(writeCount > 0){
 
             completedList = write_fdset(sensorCommArray, totalSensorCount, &writefds);
