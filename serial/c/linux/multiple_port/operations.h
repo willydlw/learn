@@ -1,21 +1,26 @@
 #ifndef OPERATIONS_H
 #define OPERATIONS_H
 
+#include <stdbool.h>
 
 #include "communication_state.h"
 #include "sensor.h"
 
+
+// macro constants
 #define MIN_NUMBER_COMMAND_LINE_ARGS 	 2
 
-
 #define SENSOR_INPUT_FILE_NAME_LENGTH 	64
+
 
 
 typedef struct debug_stats_t{
 
 	int selectZeroCount;				/**<number of times select returns 0  */
-    int sensorIdMismatchCount;		/**<number of times sensor id received in a message
+    int sensorIdMismatchCount;			/**<number of times sensor id received in a message
     										does not match the registered id */
+
+	int serialPortsOpened;				/**<number of serial connections successfully openend */
     
     //int default_comm_read_state_count;
     //int default_comm_write_state_count;
@@ -30,14 +35,29 @@ typedef struct debug_stats_t{
 }DebugStats;
 
 
+
+
 typedef struct sensor_comm_operation_t{
 	Sensor sensor;
 	CommState commState;
 }SensorCommOperation;
 
 
-
-int initialize_sensor_communication_operations(
+/* @brief Initialize sensor communications array
+*
+*
+* @param[in] sensorInputFileName 	input file containing sensor device information
+*                                   sensor name, sensor id, active state, serial 
+*									device path, and baud rate
+*
+* @param[out] sensorCommArray       array of sensor communication data structures
+*
+* @param[out] debugStats            initializes all data members to zero
+*
+* @return  success - true
+*          failure - false
+*/
+bool initialize_sensor_communication_operations(
 	const char* sensorInputFileName, 
 	SensorCommOperation *sensorCommArray, 
 	int saLength,
@@ -69,18 +89,37 @@ int initialize_sensor_communication_operations(
 * @param[out] sensorCommArray 	array of SensorCommOperation structures
 * @param[out] debugStats 	data structure that contains debugging statistics
 *
-* @return success 1  when finished reading file
-*         failure 0  when input file fails to open or for 
-*                    an invalid sensor id 
+* @return success true  when finished reading file
+*         failure false when input file fails to open or 
+*						for an invalid sensor id
 *
 */
-int import_sensor_data(
+bool import_sensor_data(
 	const char* filename, 
 	SensorCommOperation *sensorCommArray, 
 	int salength, 
 	DebugStats *debugStats);
 
 
+
+/** @brief Logs error message for active devices that failed to open the
+*          serial connection. Sets that device's state to inactive.
+*
+* @param[in/out] sensorCommArray 	array of SensorCommOperation structures
+* 									sensors that failed to open serial connection:
+*										status is changed from active to inactive
+*
+* @param[in] unopenedList			array containing sensor id of unopened connections
+* @param[in] numUnopened 			number of unopened connections
+* @param[in/out] activeSensorCount	number of active sensors is decremented for u
+*									unopened connection
+*
+* @return void
+*
+* TODO: write routine to attempt to open active devices that failed
+*	    to open serial connection
+*
+*/
 void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 		int *unopenedList, int numUnopened, int *activeSensorCount);
 

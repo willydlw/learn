@@ -4,43 +4,57 @@
 #include "serial.h"
 
 
-int initialize_sensor_communication_operations(
+bool initialize_sensor_communication_operations(
 	const char* sensorInputFileName, 
 	SensorCommOperation *sensorCommArray, int saLength,
 	DebugStats *debugStats)
 {
-	int serialPortsOpened = 0;
+	
+	// read input data file and populate sensor struct members
+	// 		name, id, active, baud rate, device path
 
-
+	// populates debugStats totalSensorCount, activeSensorCount
 	if( import_sensor_data( sensorInputFileName, sensorCommArray, 
-											saLength, debugStats) == 0)
+											saLength, debugStats) == false)
 	{
 		log_fatal("import_sensor_data returned 0");
 		return -1;
 	}
 
-
-	int unopenedList[*activeSensorCount];
+	
+	// create array to keep track of active devices that have an
+	// unopened serial connection
+	int unopenedList[debugStats->activeSensorCount];
 	int unopenedIndex = 0;
 
-	// open serial connection for active sensors
-	for(int i = 0; i < *totalSensorCount; ++i){
+	/* open serial connection for active sensors
 
+	  	loop stop condition is totalSensorCount, not saLength
+	  	as it is possible for saLength to be larger than
+	  	totalSensorCount. Assumes it is not possible for saLength
+	  	to be smaller than totalSensorCount. Depends on
+	  	import_sensor_data function to guarantee this.
+
+	  	All devices are listed in the sensorCommArray, whether
+	  	active or not. The activeSensorCount may be smaller
+	  	than the totalSensorCount. Ideally, it will be equal.
+
+	*/
+	for(int i = 0; i < debugStats->totalSensorCount; ++i){
+
+		// only attempt to open a serial connection to active device
 		if(sensorCommArray[i].sensor.active){
 			sensorCommArray[i].commState.fd = 
 				serial_init(sensorCommArray[i].sensor.devicePath, 
 					sensorCommArray[i].sensor.baudRate);
 
 			if(sensorCommArray[i].commState.fd != -1){
-				++serialPortsOpened;
+				++debugStats->serialPortsOpened;
 			}
-			else{
-
-				// add unopened devices to list
+			else{	// add unopened devices to list
 				unopenedList[unopenedIndex] = i;
 				++unopenedIndex;
 			}
-
 		}
 		else{	// inactive device
 			// set file descriptor to unopened value of -1 
@@ -50,26 +64,41 @@ int initialize_sensor_communication_operations(
 
 	if(unopenedIndex > 0){
 		handle_failed_serial_connections(sensorCommArray, unopenedList, 
-		unopenedIndex, activeSensorCount);
+		unopenedIndex, &debugStats->activeSensorCount);
 	}
 	
 
 	// now initialize the communication states 
-	initialize_communication_states(sensorCommArray, *totalSensorCount);
+	initialize_communication_states(sensorCommArray, &debugStats->totalSensorCount);
 
 	return serialPortsOpened;
 }
 
 
 
-
+/** @brief Logs error message for active devices that failed to open the
+*          serial connection. Sets that device's state to inactive.
+*
+* @param[in/out] sensorCommArray 	array of SensorCommOperation structures
+* 									sensors that failed to open serial connection:
+*										status is changed from active to inactive
+*
+* @param[in] unopenedList			array containing sensor id of unopened connections
+* @param[in] numUnopened 			number of unopened connections
+* @param[in/out] activeSensorCount	number of active sensors is decremented for u
+*									unopened connection
+*
+* @return void
+*
+* TODO: write routine to attempt to open active devices that failed
+*	    to open serial connection
+*
+*/
 void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 		int *unopenedList, int numUnopened, int *activeSensorCount)
 {
-	/* TODO: write routine to attempt to open active devices that failed
-	         to open serial connection
-	*/
-
+	
+	// log error messages for unopened connections
 	for(int i = 0; i < numUnopened; ++i){
 
 		log_error("failed to open sensor, name: %s, id: %d, device path %s,"
@@ -78,19 +107,10 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 			sensorCommArray[unopenedList[i]].sensor.id,
 			sensorCommArray[unopenedList[i]].sensor.devicePath);
 
-		if(sensorCommArray[unopenedList[i]].sensor.active == true){
-			sensorCommArray[unopenedList[i]].sensor.active = false;
-			*activeSensorCount -= 1;   // decrement count
-		}
+		// change device's state to inactive
+		sensorCommArray[unopenedList[i]].sensor.active = false;
+		*activeSensorCount -= 1;   // decrement count
 	}
-
-
-	log_warn("function has been coded to set fd to -1 for unopened connections "
-			 "and set active status to 0");
-
-	log_warn("TODO: finish function by writing code to search dev directory"
-					" and try connecting to those tty devices\n");
-	
 }
 
 
@@ -145,7 +165,8 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 
 
 
-int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArray, 
+
+bool import_sensor_data(const char* filename, SensorCommOperation *sensorCommArray, 
 	int salength, DebugStats *debugStats)
 {
 	// File variables
@@ -163,12 +184,13 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 	ifp = fopen(filename, "r");
 	if(ifp == NULL){
 		log_fatal("failed to open file %s", filename);
-		return 0;
+		return false;
 	}
 
 	// initialize debug stats 
 	debugStats->selectZeroCount = 0;
 	debugStats->sensorIdMismatchCount = 0;
+	debugStats->serialPortsOpened = 0;
 	debugStats->totalSensorCount = 0;
 	debugStats->activeSensorCount = 0;
 	debugStats->activeSensorList = 0;
@@ -192,7 +214,7 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 		else{
 			log_fatal("input file: %s, line: %d, out of range sensor id %d",
 						filename, lineCount, id);
-			return 0;	// back to while test condition
+			return false;	
 		}
 
 		// populate data members
@@ -219,8 +241,9 @@ int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArra
 	fclose(ifp);	// we are done with the input file, close it
 	ifp = NULL;	
 
-	return 1;
+	return true;
 }
+
 
 
 void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCount, 

@@ -30,11 +30,14 @@
 *        data from the other connected devices and prepare it for further 
 *        processing.
 *
-* TODO: UPDATE COMMENTS FOR MULTIPLE DEVICE BEHAVIOR
+*   Usage: ./erun sensorList.txt
+*
+*       where 
+*           erun is the executable file name
+*           sensorList.txt is input file name. May be any name.
 *
 *   Communication method: serial
-*       Default device path:  /dev/ttyACM0
-*       Default baud rate:    9600 baud
+*       
 *       
 *   Signal handling is implemented for SIGINT and SIGTERM
 *       ctrl+c produces the SIGINT
@@ -51,6 +54,8 @@
 *
 *   Order of operations:
 *
+*       verify minimum number of command line arguments were passed to main
+
 *       initialize debug logging struct
 *       initialize serial communication
 *       register the signal handlers
@@ -122,17 +127,15 @@
 
 int main(int argc, char **argv){
 
+    // Data structure that contains sensor and communication
+    // state information for each device
     SensorCommOperation sensorCommArray[SENSOR_LIST_LENGTH];
 
-    // statistics
-    int totalSensorCount = 0;
-    int activeSensorCount = 0;
-    int serialPortsOpened;
-
+    // Debugging and operational statistics
     DebugStats debugStats = {0};
     
 
-    // select  variables, needed to monitor multiple file descriptors
+    // variables needed to monitor multiple file descriptors
     fd_set readfds;                     // read file descriptor set
     fd_set writefds;                    // write file descriptor set
 
@@ -146,14 +149,14 @@ int main(int argc, char **argv){
 
     ErrorCondition errorCondition;      // select and serial error conditions
 
-    // bits set to one represent sensor with complete message received
+    // bits set to one represent sensor with complete message received/transmitted
     uint32_t completedList = 0;  
 
-    // loop variables
+    // loop variable
     int i;
 
     
-
+    // Verify the minimum number of arguments were passed to main
     if(argc < MIN_NUMBER_COMMAND_LINE_ARGS){
         log_fatal("argc: %d, minimum number command line arguments: %d", 
                     argc, MIN_NUMBER_COMMAND_LINE_ARGS);
@@ -163,13 +166,17 @@ int main(int argc, char **argv){
 
 
     // show all messages at console level, 
-    // do not write any to a file
-    // color on
+    // write DEBUG and higher level to a file
+    // color on at console level
     log_init(LOG_TRACE, LOG_DEBUG, 1);
 
 
-    serialPortsOpened = initialize_sensor_communication_operations(argv[1], 
-        sensorCommArray, SENSOR_LIST_LENGTH, &totalSensorCount, &activeSensorCount);
+    if( initialize_sensor_communication_operations(argv[1], 
+            sensorCommArray, SENSOR_LIST_LENGTH, &debugStats) == false)
+    {
+        log_fatal("initialize_sensor_communication_operations failed");
+        return 1;
+    }
 
 
     log_info("totalSensorCount:    %2d", totalSensorCount);
@@ -219,7 +226,7 @@ int main(int argc, char **argv){
     // infinite while loop that will eventually be changed to
     // while(!exit_request) cannot do it right now as the
     // signal handler has not yet been integrated into this program
-    while(1){
+    while(exit_request == 1){
 
         build_fd_sets(sensorCommArray, totalSensorCount, &readCount, &writeCount,
                     &readfds, &writefds);
