@@ -7,13 +7,13 @@
 int initialize_sensor_communication_operations(
 	const char* sensorInputFileName, 
 	SensorCommOperation *sensorCommArray, int saLength,
-	int* totalSensorCount, int* activeSensorCount)
+	DebugStats *debugStats)
 {
 	int serialPortsOpened = 0;
 
 
-	if( import_sensor_data( sensorInputFileName, sensorCommArray, saLength,
-							totalSensorCount, activeSensorCount) == 0)
+	if( import_sensor_data( sensorInputFileName, sensorCommArray, 
+											saLength, debugStats) == 0)
 	{
 		log_fatal("import_sensor_data returned 0");
 		return -1;
@@ -35,9 +35,6 @@ int initialize_sensor_communication_operations(
 				++serialPortsOpened;
 			}
 			else{
-				log_trace("adding device to unopened list\n"
-					"device id: %d, active: %d\n",
-					sensorCommArray[i].sensor.id, sensorCommArray[i].sensor.active);
 
 				// add unopened devices to list
 				unopenedList[unopenedIndex] = i;
@@ -52,12 +49,8 @@ int initialize_sensor_communication_operations(
 	}
 
 	if(unopenedIndex > 0){
-
 		handle_failed_serial_connections(sensorCommArray, unopenedList, 
 		unopenedIndex, activeSensorCount);
-	}
-	else{
-		log_info("all serial connections for active devices opened");
 	}
 	
 
@@ -79,9 +72,10 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 
 	for(int i = 0; i < numUnopened; ++i){
 
-		log_error("failed to open senor: %s, device path %s,"
+		log_error("failed to open sensor, name: %s, id: %d, device path %s,"
 			"setting device to inactive state", 
 			sensorCommArray[unopenedList[i]].sensor.name,
+			sensorCommArray[unopenedList[i]].sensor.id,
 			sensorCommArray[unopenedList[i]].sensor.devicePath);
 
 		if(sensorCommArray[unopenedList[i]].sensor.active == true){
@@ -94,10 +88,7 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 	log_warn("function has been coded to set fd to -1 for unopened connections "
 			 "and set active status to 0");
 
-	log_warn("TODO: write code to try to recover and open connections for all "
-		"devices listed as active");
-
-	log_warn("finish function by writing code to search dev directory"
+	log_warn("TODO: finish function by writing code to search dev directory"
 					" and try connecting to those tty devices\n");
 	
 }
@@ -155,75 +146,78 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 
 
 int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArray, 
-	int salength, int *totalSensorCount, int *activeSensorCount)
+	int salength, DebugStats *debugStats)
 {
+	// File variables
 	FILE *ifp = NULL;
 	int lineCount = 0;					// number of lines read from file
 
-	// temporary storage, data read from file
+	// temporary storage for data read from file
 	char name[SENSOR_NAME_LENGTH] = {'\0'};	
 	char devicePath[SERIAL_DEV_PATH_LENGTH] = {'\0'};
 	uint8_t id;
-	int onOff;
+	int active;
 	int baudRate;
 
 
 	ifp = fopen(filename, "r");
-
 	if(ifp == NULL){
 		log_fatal("failed to open file %s", filename);
 		return 0;
 	}
 
-	// initialize counts
-	*totalSensorCount = 0;
-	*activeSensorCount = 0;
+	// initialize debug stats 
+	debugStats->selectZeroCount = 0;
+	debugStats->sensorIdMismatchCount = 0;
+	debugStats->totalSensorCount = 0;
+	debugStats->activeSensorCount = 0;
+	debugStats->activeSensorList = 0;
+	debugStats->registeredSensorList = 0;
 
-	// parse file to extract sensor name, id, active state
-	//memset(name, 0, SENSOR_NAME_LENGTH);
 
-	while(*totalSensorCount < salength && 
-			fscanf(ifp, "%s%hhu%d%s%d", name, &id, &onOff, 
-					devicePath, &baudRate) == 5){
+	// read file to extract sensor name, id, active state,
+	// and device path name
+	while( debugStats->totalSensorCount < salength && 
+		   fscanf(ifp, "%s%hhu%d%s%d", name, &id, &active, 
+							devicePath, &baudRate) == 5)
+	{
 		
 		++lineCount;
 
-		// since id is an unsigned int, it will always be positive
-		// no need to compare it to minimum sensor id which is 0
+		// Becuase id is an unsigned int, it will always be positive
+		// no need to compare it to the minimum sensor id which is 0
 		if(id <= MAX_SENSOR_ID){
 			sensorCommArray[id].sensor.id = id;
 		}
 		else{
-			log_warn("input file: %s, line: %d, out of range sensor id %d",
+			log_fatal("input file: %s, line: %d, out of range sensor id %d",
 						filename, lineCount, id);
-			memset(name, 0, SENSOR_NAME_LENGTH);
-			memset(devicePath, 0, SERIAL_DEV_PATH_LENGTH);
-			continue;	// back to while test condition
+			return 0;	// back to while test condition
 		}
 
 		// populate data members
-		sensorCommArray[id].sensor.active = onOff;
+		sensorCommArray[id].sensor.active = active;
 		sensorCommArray[id].sensor.baudRate = baudRate;		
 		strcpy(sensorCommArray[id].sensor.name, name);
 		strcpy(sensorCommArray[id].sensor.devicePath, devicePath);
 
+		// update counts and list
+		debugStats->totalSensorCount += 1;
+
 		// increment counts
-		if(onOff == 1){
-			*activeSensorCount = *activeSensorCount + 1;
+		if(active == 1){
+			debugStats->activeSensorCount += 1;
+			debugStats->activeSensorList &= (1 << id);
 		}
 
-		*totalSensorCount = *totalSensorCount + 1;
-
-		// clear array
+		// clear arrays
 		memset(name, 0, SENSOR_NAME_LENGTH);
+		memset(devicePath, 0, SERIAL_DEV_PATH_LENGTH);
 	}
 
-
-	fclose(ifp);
-	ifp = NULL;
-
-	log_info("totalSensorCount: %d, activeSensorCount: %d", *totalSensorCount, 
-				*activeSensorCount);
+	
+	fclose(ifp);	// we are done with the input file, close it
+	ifp = NULL;	
 
 	return 1;
 }
@@ -355,8 +349,6 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
     	// Important when the bytesWritten differ from the bytesToWrite
     	sensorCommArray[i].commState.writeIndex += bytesWritten;
 
-    	log_trace("updated value of sensorCommArray[%ld].commState.writeIndex: %d",
-    				i, sensorCommArray[i].commState.writeIndex);
 
     	/* Example: writeIndex is 0
     				WRITE_MESSAGE_LENGTH_BYTES is 5
@@ -367,17 +359,10 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
     	if(sensorCommArray[i].commState.writeIndex >= WRITE_MESSAGE_LENGTH_BYTES){
 
     		sensorCommArray[i].commState.writeIndex = 0;      // reset to start
-    		log_trace("entire message was sent, updated value of sensorCommArray[%ld].commState.writeIndex: %d",
-    				i, sensorCommArray[i].commState.writeIndex);
-
-    		sensorCommArray[i].commState.writeCompletedState = true;
-
-    		log_trace("updated writeCompletedState to true");
+     		sensorCommArray[i].commState.writeCompletedState = true;
 
     		// use sensor id to set corresponding bit to 1
         	completedList |= (uint32_t)(1 << sensorCommArray[i].sensor.id);
-
-        	log_trace("added sensor id: %d to completed list", sensorCommArray[i].sensor.id);
 
     	}
     }
@@ -536,10 +521,6 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 void process_operational_state(SensorCommOperation *sco)
 {
 
-	log_trace("entered function, operational state: %s", debug_operational_state_string[sco->commState.ostate]);
-
-
-
 	// for debug only, remove when debugging completed
 	if(sco->commState.readState == true){
 		char hexmsg[3*READ_MESSAGE_LENGTH_BYTES+1];
@@ -572,14 +553,14 @@ void process_operational_state(SensorCommOperation *sco)
 				
 				// verify expected message was received before transitioning to next state
 				if( strcmp((char*)sco->commState.readCompletedBuffer, helloMessage) == 0){
-					log_trace("SUCCESS, helloMessage recognized\n");
+
+					log_info("SUCCESS, sensor id: %d, helloMessage recognized\n",
+						sco->sensor.id);
 					sco->commState.ostate = ACKNOWLEDGE_CONNECTION;
-					log_trace("operational state changed to %s", debug_operational_state_string[sco->commState.ostate]);
 					sco->commState.readState = false;
 					sco->commState.writeState = true;
 					// load acknowledge message into write buffer
 					strcpy((char*)sco->commState.writeBuffer, ackResponse);
-					log_trace("loaded ackResponse into writeBuffer: %s", ackResponse);
 				}
 				else{
 					// log error, do not change state
@@ -611,8 +592,6 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.writeState = false;
 				sco->commState.readState = true;
 				sco->commState.writeCompletedState = false;	
-
-				log_trace("operational state changed to %s", debug_operational_state_string[sco->commState.ostate]);
 			}
 			else{
 
@@ -630,8 +609,6 @@ void process_operational_state(SensorCommOperation *sco)
 				// is this the id message
 				if(sco->commState.readCompletedBuffer[2] == 'i' &&
 					sco->commState.readCompletedBuffer[3] == 'd'){
-
-					log_trace("received characters id");
 
 					// extract the sensor id from the message received
 					// data bytes one and two
@@ -682,6 +659,8 @@ void process_operational_state(SensorCommOperation *sco)
 
 			if(sco->commState.writeCompletedState == true){
 
+				START HERE, CREATE A SENSOR registration LIST AND AN ACTIVE SENSOR LIST
+
 				log_trace("success, sensor registration complete");
 
 				// after transmitting ack response, the next operational
@@ -721,29 +700,13 @@ void process_operational_state(SensorCommOperation *sco)
 
 				// extract the sensor id from the message received
 				// data bytes one and two
-				uint16_t deviceData, sensorData;
-				uint8_t msb, lsb;
-
-				// data byte one is most significant bit
-				msb = sco->commState.readCompletedBuffer[DATA_BYTE_TWO];
-
-				// data byte two is least significant bit
-				lsb = sco->commState.readCompletedBuffer[DATA_BYTE_THREE];
-
-				deviceData = (uint16_t)((msb << 8) | lsb);
+				uint16_t sensorData;
 
 				sensorData = (uint16_t)(((uint16_t)sco->commState.readCompletedBuffer[DATA_BYTE_TWO] << 8U) |
                                         ((uint16_t)sco->commState.readCompletedBuffer[DATA_BYTE_THREE] & 0xFF) );
 
-				log_trace("msb: %hhx, lsb: %hhx, deviceData: %hx")
+				log_info("sensorData: %u", sensorData);
 
-				log_info("success, device: %s, device data received %hx", 
-					sco->sensor.name, deviceData);
-
-				log_trace("sensorData: %u", sensorData);
-
-				log_warn("Next programming step, write code to deal with the sensor data\n");
-	
 			}
 			else{
 				log_error("operational state: %s, readCompletedState is false, "

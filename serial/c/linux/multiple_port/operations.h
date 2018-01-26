@@ -12,11 +12,21 @@
 
 
 typedef struct debug_stats_t{
-	int select_zero_count;				/**<number of times select returns 0  */
-    int sensor_id_mismatch_count;		/**<number of times sensor id received in a message
+
+	int selectZeroCount;				/**<number of times select returns 0  */
+    int sensorIdMismatchCount;		/**<number of times sensor id received in a message
     										does not match the registered id */
-    int default_comm_read_state_count;
-    int default_comm_write_state_count;
+    
+    //int default_comm_read_state_count;
+    //int default_comm_write_state_count;
+
+    int totalSensorCount;				/**<total number of sensors listed in input file */
+    int activeSensorCount;				/**<total number of sensors listed as active */
+
+    uint32_t activeSensorList;			/**<bits set to 1 represent an active sensor
+    										bit position corresponds to sensor id */
+    uint32_t registeredSensorList;		/**<bits set to 1 represent sensor that has
+                                            completed the sensor registration state */
 }DebugStats;
 
 
@@ -29,11 +39,46 @@ typedef struct sensor_comm_operation_t{
 
 int initialize_sensor_communication_operations(
 	const char* sensorInputFileName, 
-	SensorCommOperation *sensorCommArray, int saLength,
-	int* totalSensorCount, int* activeSensorCount);
+	SensorCommOperation *sensorCommArray, 
+	int saLength,
+	DebugStats *debugStats);
 
-int import_sensor_data(const char* filename, SensorCommOperation *sensorCommArray, 
-	int salength, int *totalSensorCount, int *activeSensorCount);
+
+/* @brief Populates sensor device data from input file
+*
+*  Input data file should contain
+*  		sensor name  	sensor id 	active state  	device path
+*
+*  in that order, separated by white space.
+*
+*  This data is stored in the sensorCommArray data members.
+*  
+*  The debugStats data member totalSensorCount contains the
+*  count of the total number of sensors.
+*
+*  The activeSensorCount is the total number of sensors
+*  read as active.
+*
+*  The sensor id is used to set the corresponding bit position
+*  in the activeSensorList.
+*  		Example: sensor id 0 is active, bit 0 is set to 1
+*				 sensor id 1 is not active, bit 1 is set to 0
+*
+* @param[in] filename 		sensor data input file name
+* @param[in] salength 		number elements in sensorCommArray
+* @param[out] sensorCommArray 	array of SensorCommOperation structures
+* @param[out] debugStats 	data structure that contains debugging statistics
+*
+* @return success 1  when finished reading file
+*         failure 0  when input file fails to open or for 
+*                    an invalid sensor id 
+*
+*/
+int import_sensor_data(
+	const char* filename, 
+	SensorCommOperation *sensorCommArray, 
+	int salength, 
+	DebugStats *debugStats);
 
 
 void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,

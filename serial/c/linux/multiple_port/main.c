@@ -165,16 +165,16 @@ int main(int argc, char **argv){
     // show all messages at console level, 
     // do not write any to a file
     // color on
-    log_init(LOG_TRACE, LOG_TRACE, 1);
+    log_init(LOG_TRACE, LOG_DEBUG, 1);
 
 
     serialPortsOpened = initialize_sensor_communication_operations(argv[1], 
         sensorCommArray, SENSOR_LIST_LENGTH, &totalSensorCount, &activeSensorCount);
 
 
-    log_trace("totalSensorCount:    %2d", totalSensorCount);
-    log_trace("active sensor count: %2d", activeSensorCount);
-    log_trace("serial ports opened: %2d\n", serialPortsOpened);
+    log_info("totalSensorCount:    %2d", totalSensorCount);
+    log_info("active sensor count: %2d", activeSensorCount);
+    log_info("serial ports opened: %2d\n", serialPortsOpened);
 
 
     if(serialPortsOpened < 1){
@@ -202,8 +202,6 @@ int main(int argc, char **argv){
     // maxfd is still the largest numeric value
     maxfd = find_largest_fd(sensorCommArray, totalSensorCount);
 
-    log_trace("maxfd: %d\n", maxfd);
-
     // pselect requires an argument that is 1 more than
     // the largest file descriptor value
     maxfd = maxfd + 1;   
@@ -226,12 +224,16 @@ int main(int argc, char **argv){
         build_fd_sets(sensorCommArray, totalSensorCount, &readCount, &writeCount,
                     &readfds, &writefds);
 
-        log_trace("readCount: %d, writeCount: %d", readCount, writeCount);
-
+        
         //selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, &empty_mask);
         selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, NULL);
-    
-        log_trace("\nnumber of fd pending, selectReturn: %d\n", selectReturn);
+
+        /** TODO: Observe select return count, is it ever larger than 1 */
+        if(selectReturn < (readCount + writeCount)) {
+            log_debug("readCount: %d, writeCount: %d, selectReturn %d", 
+                    readCount, writeCount, selectReturn);   
+        }
+        
 
         /*if(exit_request){
         log_info("received exit request");

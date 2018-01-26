@@ -91,10 +91,6 @@ int serial_init(const char *serial_device_name, int baud_rate)
         return -1;
     }
 
-    else{
-        log_info("serial port fd = %d", serial_port_fd);
-    }   
-
 
     // Get current serial port settings
     if(tcgetattr(serial_port_fd, &terminalSettings) < 0){

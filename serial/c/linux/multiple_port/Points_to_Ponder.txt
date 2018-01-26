@@ -128,3 +128,21 @@ Points to ponder
 3. Do we stay in the Operational WAIT_FOR_CONNECTION  state 
    until receiving a hello message from all connected devices?
 
+
+4. Function import_sensor_data, operations.h, adds 1 to 
+   total sensor count each time one line of file data is successfully 
+   read. Is it advisable to add the total sensor count to the input 
+   data file? This integer value could be read first and then the 
+   total sensor count after reading the entire file can be compared.
+
+   The function is designed to quit if it fails to read
+   one line of file data. The error in the total number of
+   sensors may come from not including all the sensor data
+   in the input file. Adding the count to the file provides
+   an opportunity for ensuring data for every sensor is
+   listed in the file. Of course, it is possible that the
+   count may be in error. 
+
+   Example: total count should be
+   32, but is 31 and there are 31 lines to read. Does 
+   not protect against a missing sensor in that case.
