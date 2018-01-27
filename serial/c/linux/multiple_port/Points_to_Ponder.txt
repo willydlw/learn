@@ -146,3 +146,9 @@ Points to ponder
    Example: total count should be
    32, but is 31 and there are 31 lines to read. Does 
    not protect against a missing sensor in that case.
+
+
+5. Select failures that are fatal - send signal to another
+   program
+
+   

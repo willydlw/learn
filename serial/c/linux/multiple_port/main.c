@@ -178,22 +178,19 @@ int main(int argc, char **argv){
         return 1;
     }
 
-
-    log_info("totalSensorCount:    %2d", totalSensorCount);
-    log_info("active sensor count: %2d", activeSensorCount);
-    log_info("serial ports opened: %2d\n", serialPortsOpened);
-
-
-    if(serialPortsOpened < 1){
+    
+    if(debugStats.serialPortsOpened < 1){
         log_fatal("no serial ports opened, program terminating");
         return 1;
     }
 
-    if(serialPortsOpened < activeSensorCount){
-        log_fatal("serialPortsOpened: %d, activeSensorCount %d, program terminating"
-            "\nAdd code to try to recover");
-        return 1;
-    }
+    
+    // log successful initialization
+    log_info("SUCCESS, initialized sensor communication data members");
+    log_info("totalSensorCount:    %4d", debugStats.totalSensorCount);
+    log_info("active sensor count: %4d", debugStats.activeSensorCount);
+    log_info("serial ports opened: %4d\n", debugStats.serialPortsOpened);
+    log_info("active sensor list:  %#4x", debugStats.activeSensorList);
 
       
 
@@ -206,8 +203,9 @@ int main(int argc, char **argv){
 
     // If either of the above happens at some other point
     // in the program, must ensure that this value of
-    // maxfd is still the largest numeric value
-    maxfd = find_largest_fd(sensorCommArray, totalSensorCount);
+    // maxfd is still the largest numeric value.
+    // Currently, there is no code that closes and reopens a serial port
+    maxfd = find_largest_fd(sensorCommArray, debugStats.totalSensorCount);
 
     // pselect requires an argument that is 1 more than
     // the largest file descriptor value
@@ -226,28 +224,43 @@ int main(int argc, char **argv){
     // infinite while loop that will eventually be changed to
     // while(!exit_request) cannot do it right now as the
     // signal handler has not yet been integrated into this program
-    while(exit_request == 1){
+    while(1){
 
-        build_fd_sets(sensorCommArray, totalSensorCount, &readCount, &writeCount,
+        // adds all open file descriptor to the appropriate read/write set
+        build_fd_sets(sensorCommArray, debugStats.totalSensorCount, &readCount, &writeCount,
                     &readfds, &writefds);
 
         
         //selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, &empty_mask);
         selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, NULL);
 
-        /** TODO: Observe select return count, is it ever larger than 1 */
+        /** TODO: Observe select return count, is it ever larger than 1 ?
+                  It appears it will not be as there is only one hardware UART 
+
+            Logging statement below is for debugging behavior only. Remove when
+            behavior is confirmed.
+        */
         if(selectReturn < (readCount + writeCount)) {
             log_debug("readCount: %d, writeCount: %d, selectReturn %d", 
                     readCount, writeCount, selectReturn);   
         }
         
 
+        ADD CODE BACK FOR SIGNAL HANDLER 
+
         /*if(exit_request){
         log_info("received exit request");
         break;
         } */
 
-        errorCondition = check_select_return_value(selectReturn, errno, &debugStats.select_zero_count);
+
+        UPDATE PROGRAM TO TOTAL SENSOR FAILURE COUNTS
+
+        SHOULD PROGRAM TERMINATE AFTER A CERTAIN NUMBER OF FAILURES 
+        OR SEND FLAG TO ALERT ANOTHER PROGRAM ??
+
+
+        errorCondition = check_select_return_value(selectReturn, errno, &debugStats.selectZeroCount);
 
         if(errorCondition != SUCCESS){
             // return to while(test condition)

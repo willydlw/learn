@@ -50,6 +50,7 @@ bool initialize_sensor_communication_operations(
 
 			if(sensorCommArray[i].commState.fd != -1){
 				++debugStats->serialPortsOpened;
+				debugStats->activeSensorList |= (1 << sensorCommArray[i].sensor.id);
 			}
 			else{	// add unopened devices to list
 				unopenedList[unopenedIndex] = i;
@@ -114,9 +115,18 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 }
 
 
-// NOTE: do not call this function before establishing serial connection
-// tests for file descriptor != -1
-void initialize_communication_states(SensorCommOperation *sensorCommArray, 
+
+/** @brief Initializes the commState data members
+*
+* @param[out] sensorCommArray 	array of sensor device data structures
+* @param[in] salength 			number of elements in sensorCommArray
+*
+* @return void
+*
+* @note: do not call this function before establishing serial connection
+* tests for file descriptor != -1
+*/
+static void initialize_communication_states(SensorCommOperation *sensorCommArray, 
 	int salength)
 {
 	for(int i = 0; i < salength; ++i){

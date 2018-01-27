@@ -16,17 +16,19 @@
 
 typedef struct debug_stats_t{
 
+	int totalSensorCount;				/**<total number of sensors listed in input file */
+    int activeSensorCount;				/**<total number of sensors listed as active */
+
 	int selectZeroCount;				/**<number of times select returns 0  */
+	int selectFailureCount;				/**<number of times select returns failure condition */
     int sensorIdMismatchCount;			/**<number of times sensor id received in a message
+    
     										does not match the registered id */
 
 	int serialPortsOpened;				/**<number of serial connections successfully openend */
     
     //int default_comm_read_state_count;
     //int default_comm_write_state_count;
-
-    int totalSensorCount;				/**<total number of sensors listed in input file */
-    int activeSensorCount;				/**<total number of sensors listed as active */
 
     uint32_t activeSensorList;			/**<bits set to 1 represent an active sensor
     										bit position corresponds to sensor id */
@@ -124,7 +126,18 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 		int *unopenedList, int numUnopened, int *activeSensorCount);
 
 
-void initialize_communication_states(SensorCommOperation *sensorCommArray, 
+
+/** @brief Initializes the commState data members
+*
+* @param[out] sensorCommArray 	array of sensor device data structures
+* @param[in] salength 			number of elements in sensorCommArray
+*
+* @return void
+*
+* @note: do not call this function before establishing serial connection
+* tests for file descriptor != -1
+*/
+static void initialize_communication_states(SensorCommOperation *sensorCommArray, 
 	int totalSensorCount);
 
 
