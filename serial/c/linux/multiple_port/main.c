@@ -113,13 +113,84 @@
 
 
 #define _POSIX_C_SOURCE 200112L          // pselect
+#define  _DEFAULT_SOURCE                 // psignal 
 
 #include <errno.h>
+#include <signal.h>
+#include <string.h>
+#include <sys/select.h>
+#include <sys/time.h>
 
 #include <debuglog.h>
 
 #include "operations.h"
 #include "sensor.h"
+
+
+
+/*============== Global Variable Declarations =============================*/
+
+
+/* You have to be careful about the fact that access to a single datum is not necessarily atomic. 
+    This means that it can take more than one instruction to read or write a single object. 
+    In such cases, a signal handler might be invoked in the middle of reading or writing the object.
+
+    To avoid uncertainty about interrupting access to a variable, you can use a particular data 
+    type for which access is always atomic: sig_atomic_t. 
+
+    Reading and writing this data type is guaranteed to happen in a single instruction, 
+    so there’s no way for a handler to run “in the middle” of an access.
+
+    The type sig_atomic_t is always an integer data type, but which one it is, and how many bits 
+    it contains, may vary from machine to machine.
+
+    https://www.gnu.org/software/libc/manual/html_node/Atomic-Types.html#Atomic-Types
+*/
+
+static volatile sig_atomic_t exitRequest = 0;
+
+
+
+
+
+
+
+/*========================= Function Definitions ==========================*/
+
+
+
+/**
+* @brief Sets exit request flag to 1 when SIGINT is received
+*        or when SIGTERM is raised
+*
+* @param[in]    sig                       signal passed from operating system 
+*
+* @param[out]
+*       sig_atomic_t    exitRequest      flag set to 1 when signal received
+*                                         Defined as global
+*
+* @return void       
+*
+*      
+* @note
+*       Function is not directly invoked. Operating system calls it when
+*       the registered signal is received. Signals are software interrupts.
+*
+*/
+static void signal_handler_term(int sig)
+{
+    /* psignal used for debugging purposes
+       debugging console output lets us know this function was
+       triggered. Prints the string message and a string for the
+       variable sig
+    */
+    psignal(sig, "signal_handler_term");
+    if(sig == SIGINT || sig == SIGTERM){
+        exitRequest = 1;
+    }
+    
+}
+
 
 
 
@@ -154,6 +225,23 @@ int main(int argc, char **argv){
 
     // loop variable
     int i;
+
+    // signal handling
+    // signal mask
+    sigset_t sigmask;
+    sigset_t empty_mask;
+    
+
+    /* struct sigaction{
+        void (*sa_handler)(int);
+        void (*sa_sigaction)(int, siginfo_t *, void*);
+        sigset_t    sa_mask;
+        int     sa_flags;
+        void (*sa_restorer)(void);
+    }
+    */
+    struct sigaction saterm;            // SIGTERM raised by this program or another
+    struct sigaction saint;             // SIGINT caused by ctrl + c
 
     
     // Verify the minimum number of arguments were passed to main
@@ -221,10 +309,48 @@ int main(int argc, char **argv){
     timeout.tv_nsec = 0;                    // nanoseconds   
 
 
-    // infinite while loop that will eventually be changed to
-    // while(!exit_request) cannot do it right now as the
-    // signal handler has not yet been integrated into this program
-    while(1){
+    // register the SIGTERM signal handler function
+    memset(&saterm, 0, sizeof(saterm));
+    saterm.sa_handler = signal_handler_term;
+
+    /*  The sigaction() system call is used to change the action 
+        taken by a process on receipt of a specific signal.
+    */
+    if(sigaction(SIGTERM, &saterm, NULL) < 0){
+        log_fatal("sigaction saterm, errno: %s", strerror(errno));
+        return 1;
+    }
+    
+
+    // register the SIGINT signal handler function
+    memset(&saint, 0, sizeof(saint));
+    saint.sa_handler = signal_handler_term;
+    if(sigaction(SIGINT, &saint, NULL) < 0){
+        log_fatal("sigaction saint, errno: %s", strerror(errno));
+        return 1;
+    }
+
+    // signal mask initialization
+    sigemptyset(&sigmask);
+    sigemptyset(&empty_mask);
+
+    sigaddset(&sigmask, SIGTERM);
+    sigaddset(&sigmask, SIGINT);
+
+    // set as blocking so that pselect can receive event
+    if(sigprocmask(SIG_BLOCK, &sigmask, NULL) < 0){
+        log_fatal("sigprocmask, errno: %s", strerror(errno));
+        return 1;
+    }
+
+
+
+    // required signal interrupt to exit loop
+    while(exitRequest == 0){
+
+        /*  can get SIGTERM, SIGINT at this point, but they will be delivered while
+            in pselect, because SIGTERM, SIGINT are blocked.
+        */
 
         // adds all open file descriptor to the appropriate read/write set
         build_fd_sets(sensorCommArray, debugStats.totalSensorCount, &readCount, &writeCount,
@@ -232,7 +358,7 @@ int main(int argc, char **argv){
 
         
         //selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, &empty_mask);
-        selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, NULL);
+        selectReturn = pselect(maxfd, &readfds, &writefds, NULL, &timeout, &empty_mask);
 
         /** TODO: Observe select return count, is it ever larger than 1 ?
                   It appears it will not be as there is only one hardware UART 
@@ -246,19 +372,17 @@ int main(int argc, char **argv){
         }
         
 
-        ADD CODE BACK FOR SIGNAL HANDLER 
-
-        /*if(exit_request){
-        log_info("received exit request");
-        break;
-        } */
+        if(exitRequest == 1){
+            log_info("received exit request");
+            break;
+        } 
 
 
-        UPDATE PROGRAM TO TOTAL SENSOR FAILURE COUNTS
+        /*UPDATE PROGRAM TO TOTAL SENSOR FAILURE COUNTS
 
         SHOULD PROGRAM TERMINATE AFTER A CERTAIN NUMBER OF FAILURES 
         OR SEND FLAG TO ALERT ANOTHER PROGRAM ??
-
+        */
 
         errorCondition = check_select_return_value(selectReturn, errno, &debugStats.selectZeroCount);
 
@@ -271,10 +395,10 @@ int main(int argc, char **argv){
         // read only when a device has a read state
         if(readCount > 0){
 
-            completedList = read_fdset(sensorCommArray, totalSensorCount, &readfds);
+            completedList = read_fdset(sensorCommArray, debugStats.totalSensorCount, &readfds);
 
             // process each completed task in the array
-            for(i = 0; i < totalSensorCount; ++i){
+            for(i = 0; i < debugStats.totalSensorCount; ++i){
                 
 
                 // array index location is the same as the sensor id
@@ -284,7 +408,7 @@ int main(int argc, char **argv){
                     log_trace("sensor id: %d in completedList: %#x, (1 << %d): %#x", 
                         sensorCommArray[i].sensor.id, completedList, i, 1 << i);
 
-                    process_operational_state(&sensorCommArray[i]);
+                    process_operational_state(&sensorCommArray[i], &debugStats);
                     
                 }
             }
@@ -293,10 +417,10 @@ int main(int argc, char **argv){
  
         if(writeCount > 0){
 
-            completedList = write_fdset(sensorCommArray, totalSensorCount, &writefds);
+            completedList = write_fdset(sensorCommArray, debugStats.totalSensorCount, &writefds);
 
             // process each completed task in the array
-            for(i = 0; i < totalSensorCount; ++i){
+            for(i = 0; i < debugStats.totalSensorCount; ++i){
                 
                 // array index location is the same as the sensor id
                 // bit mask is 1 << i
@@ -305,7 +429,7 @@ int main(int argc, char **argv){
                     log_trace("sensor id: %d in completedList: %#x, (1 << %d): %#x", 
                         sensorCommArray[i].sensor.id, completedList, i, 1 << i);
 
-                    process_operational_state(&sensorCommArray[i]);
+                    process_operational_state(&sensorCommArray[i], &debugStats);
                     
                 }
             }
@@ -315,7 +439,7 @@ int main(int argc, char **argv){
       
     
 
-    close_serial_connections(sensorCommArray, totalSensorCount);
+    close_serial_connections(sensorCommArray, debugStats.totalSensorCount);
 
 
 	return 0;

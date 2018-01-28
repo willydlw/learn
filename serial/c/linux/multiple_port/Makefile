@@ -3,7 +3,7 @@ All:erun
 erun: main.o operations.o serial.o communication_state.o sensor.o
 	gcc -std=c11 -o erun main.o operations.o serial.o  \
 	communication_state.o sensor.o  \
-	-L /usr/local/lib/debuglog.so -ldebuglog -lm
+	-L /usr/local/lib/debuglog.so -ldebuglog -lm -lc
 	
 
 

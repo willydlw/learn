@@ -152,3 +152,51 @@ Points to ponder
    program
 
    
+6. Sensor ID mismatch - File operations.c
+   function: process_operational_state.c,
+
+   In state WAIT_FOR_SENSOR_ID, when the id message
+   is received, the received sensor id is compared to the sensor id 
+   originally read from the sensor input file. When the id's do not 
+   match, a fatal error occurs. The error is logged and the signal 
+   SIGTERM is raised, terminating program execution.
+
+   We could handle this by overwriting the sensor id with the one 
+   transmitted, making the assumption that the input data file was 
+   incorrect. But what if this is not the case? 
+
+   What if the input file says this is tachometer 1 and the sensor 
+   id says it is a temperature sensor? We don't want to report the data 
+   incorrectly.
+
+ 7. Sensor registration failure - File operations.c
+    function process_operational_state.c
+
+    In state SENSOR_REGISTRATION_COMPLETE, there is a counter named
+    stateEntryCount that keeps track of how many times this section
+    of code is entered. Ideally, it should only be entered once for
+    each sensor as the sensor registration is completed.
+
+    The program will never progress to the RECEIVE_SENSOR_DATA if
+    registration is not completed. As soon as the stateEntryCount
+    exceeds the activeSensorCount, an error is logged, listing
+    the sensors that have not yet completed registration.
+
+    If the stateEntryCount reaches the point where it is 2 times
+    the activeSensorCount, SIGTERM is raised and the program is
+    terminated, with an appropriate log message. The 2 times
+    was arbitrarily chosen. It can be reduced to allow this 
+    condition to occur earlier.
+
+    This error condition occurs when the Linux program has not
+    successfully transmitted the readyResponse message. Likely,
+    this is due to a dropped connection between devices.
+
+    Possible recovery is to close the serial connection and
+    reopen it. Successfully reopening it will cause both devices
+    to go back to the initial state and run through the registration
+    process, potentially successfully completing the process. Failure
+    to open the connection, currently results in setting the device as
+    inactive.
+
+

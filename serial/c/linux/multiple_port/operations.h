@@ -137,7 +137,7 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 * @note: do not call this function before establishing serial connection
 * tests for file descriptor != -1
 */
-static void initialize_communication_states(SensorCommOperation *sensorCommArray, 
+void initialize_communication_states(SensorCommOperation *sensorCommArray, 
 	int totalSensorCount);
 
 
@@ -169,7 +169,7 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag);
 
 
-void process_operational_state(SensorCommOperation *sco);
+void process_operational_state(SensorCommOperation *sco, DebugStats *debugStats);
 
 
 /* @brief Closes all open file descriptors in the sensor array

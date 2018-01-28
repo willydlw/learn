@@ -1,4 +1,5 @@
 #include <string.h>
+#include <signal.h>
 
 #include "operations.h"
 #include "serial.h"
@@ -18,7 +19,7 @@ bool initialize_sensor_communication_operations(
 											saLength, debugStats) == false)
 	{
 		log_fatal("import_sensor_data returned 0");
-		return -1;
+		return false;
 	}
 
 	
@@ -50,7 +51,7 @@ bool initialize_sensor_communication_operations(
 
 			if(sensorCommArray[i].commState.fd != -1){
 				++debugStats->serialPortsOpened;
-				debugStats->activeSensorList |= (1 << sensorCommArray[i].sensor.id);
+				debugStats->activeSensorList |= (uint32_t)1 << (uint32_t)sensorCommArray[i].sensor.id;
 			}
 			else{	// add unopened devices to list
 				unopenedList[unopenedIndex] = i;
@@ -70,9 +71,9 @@ bool initialize_sensor_communication_operations(
 	
 
 	// now initialize the communication states 
-	initialize_communication_states(sensorCommArray, &debugStats->totalSensorCount);
+	initialize_communication_states(sensorCommArray, debugStats->totalSensorCount);
 
-	return serialPortsOpened;
+	return true;
 }
 
 
@@ -126,7 +127,7 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 * @note: do not call this function before establishing serial connection
 * tests for file descriptor != -1
 */
-static void initialize_communication_states(SensorCommOperation *sensorCommArray, 
+void initialize_communication_states(SensorCommOperation *sensorCommArray, 
 	int salength)
 {
 	for(int i = 0; i < salength; ++i){
@@ -239,7 +240,7 @@ bool import_sensor_data(const char* filename, SensorCommOperation *sensorCommArr
 		// increment counts
 		if(active == 1){
 			debugStats->activeSensorCount += 1;
-			debugStats->activeSensorList &= (1 << id);
+			debugStats->activeSensorList &= (uint32_t)1U << (uint32_t)id;
 		}
 
 		// clear arrays
@@ -339,7 +340,7 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
         	if(sensorCommArray[i].commState.readCompletedState == true){
 
         		// use sensor id to set corresponding bit to 1
-        		completedList |= (uint32_t)(1 << sensorCommArray[i].sensor.id);
+        		completedList |= (uint32_t)1 << (uint32_t)sensorCommArray[i].sensor.id;
         	}
         } // end if bytes_read > 0
 	}  // end for
@@ -395,7 +396,7 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
      		sensorCommArray[i].commState.writeCompletedState = true;
 
     		// use sensor id to set corresponding bit to 1
-        	completedList |= (uint32_t)(1 << sensorCommArray[i].sensor.id);
+        	completedList |= (uint32_t)1 << (uint32_t)sensorCommArray[i].sensor.id;
 
     	}
     }
@@ -551,7 +552,7 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 }
 
 
-void process_operational_state(SensorCommOperation *sco)
+void process_operational_state(SensorCommOperation *sco, DebugStats *debugStats)
 {
 
 	// for debug only, remove when debugging completed
@@ -660,9 +661,10 @@ void process_operational_state(SensorCommOperation *sco)
 						strcpy((char*)sco->commState.writeBuffer, readyResponse);
 					}
 					else{
-						log_error("operational state: %s, sensor id mismatch, expected: %d, received: %d",
+						log_fatal("operational state: %s, sensor id mismatch, expected: %d, received: %d",
 									debug_operational_state_string[sco->commState.ostate], 
 									sco->sensor.id, sid);
+						raise(SIGTERM);
 					}
 				}
 				else{   // die not receive id characters in message
@@ -689,12 +691,14 @@ void process_operational_state(SensorCommOperation *sco)
 			break;
 
 		case SENSOR_REGISTRATION_COMPLETE:
+		{
+			static int stateEntryCount = 0;
+
+			++stateEntryCount;
 
 			if(sco->commState.writeCompletedState == true){
 
-				START HERE, CREATE A SENSOR registration LIST AND AN ACTIVE SENSOR LIST
-
-				log_trace("success, sensor registration complete");
+				log_trace("success, sensor %d registration complete", sco->sensor.id);
 
 				// after transmitting ack response, the next operational
 				// state is waiting to receive the sensor id from the device
@@ -702,6 +706,7 @@ void process_operational_state(SensorCommOperation *sco)
 				sco->commState.writeState = false;
 				sco->commState.readState = true;
 				sco->commState.writeCompletedState = false;	
+				debugStats->registeredSensorList |= (uint32_t)1 << (uint32_t)sco->sensor.id;
 			}
 			else{
 
@@ -709,6 +714,22 @@ void process_operational_state(SensorCommOperation *sco)
 					debug_operational_state_string[sco->commState.ostate]);
 				log_SensorCommOperation_data(sco);
 			}
+
+			if(stateEntryCount > debugStats->activeSensorCount){
+				log_warn("stateEntryCount: %d, activeSensorCount: %d, "
+					"expected all sensors to be registered", stateEntryCount, debugStats->activeSensorCount);
+				log_warn("sensors with bit values of 1 are not registered, %#x", 
+					debugStats->registeredSensorList ^ debugStats->activeSensorList);
+
+				if(stateEntryCount > (2*debugStats->activeSensorCount) ){
+					log_fatal("program terminating due to sensor registration failure");
+					raise(SIGTERM);
+				}
+			}
+
+		}
+
+			
 			break;
 
 		case RECEIVE_SENSOR_DATA:
