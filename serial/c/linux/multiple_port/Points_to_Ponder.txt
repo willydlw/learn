@@ -148,8 +148,28 @@ Points to ponder
    not protect against a missing sensor in that case.
 
 
-5. Select failures that are fatal - send signal to another
-   program
+5. Select failure - file communication_state.c
+   function check_select_return_value returns
+   the error condition SELECT_FAILURE for select
+   function errors from which we likely cannot recover. 
+
+   Errors:  
+            EBADF - invalid file descriptor. Possible fd closed, or in error state
+            EINTR - signal was caught
+            EINVAL - nfds is negative or timeout value is invalid
+            ENOMEM - unable to allocate memory for internal tables. 
+
+     The exception is EINTR, signal was caught. We have a signal
+     handler installed and are not counting EINTR as
+     a select failure. 
+
+   The other select failures are likely fatal to communication.
+   At the present time, a count of failures is maintained and
+   recorded at program termination. These errors are logged,
+   but the program continues. As the program is tested with
+   an actual system and we find select failure occurs, then
+   we should signal another program that we are no longer 
+   able to communicate. 
 
    
 6. Sensor ID mismatch - File operations.c
