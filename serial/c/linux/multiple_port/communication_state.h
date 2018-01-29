@@ -164,7 +164,7 @@ typedef enum error_conditions_t {
 
 
 
-ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCount);
+ErrorCondition check_select_return_value(int selectfds, int errnum);
 
 ssize_t read_message(int fd, fd_set readfds, uint8_t *buf);
 

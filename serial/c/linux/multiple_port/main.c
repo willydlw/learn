@@ -375,18 +375,19 @@ int main(int argc, char **argv){
         if(exitRequest == 1){
             log_info("received exit request");
             break;
-        } 
+        }            
 
-
-        /*UPDATE PROGRAM TO TOTAL SENSOR FAILURE COUNTS
-
-        SHOULD PROGRAM TERMINATE AFTER A CERTAIN NUMBER OF FAILURES 
-        OR SEND FLAG TO ALERT ANOTHER PROGRAM ??
-        */
-
-        errorCondition = check_select_return_value(selectReturn, errno, &debugStats.selectZeroCount);
+        // do not try to read or write if select fails
+        errorCondition = check_select_return_value(selectReturn, errno);
 
         if(errorCondition != SUCCESS){
+            if(errorCondition == SELECT_ZERO_COUNT){
+                ++debugStats.selectZeroCount;
+            }
+            else if(errorCondition == SELECT_FAILURE){
+                ++debugStats.selectFailureCount;
+            }
+
             // return to while(test condition)
             continue;
         }

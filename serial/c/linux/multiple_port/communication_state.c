@@ -115,7 +115,7 @@ const uint8_t end_marker = '>';
 *
 */
 
-ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCount)
+ErrorCondition check_select_return_value(int selectfds, int errnum)
 {
 	if(selectfds < 0 && errnum != EINTR){   // EINTR means signal was caught
 		
@@ -137,7 +137,6 @@ ErrorCondition check_select_return_value(int selectfds, int errnum, int *zeroCou
         // never be sensor data to read when the operational state
         // is RECEIVE_SENSOR_DATA
     	log_debug("select returned zero");
-    	*zeroCount = *zeroCount + 1;
     	return SELECT_ZERO_COUNT;
     }
 
