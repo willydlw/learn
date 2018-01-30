@@ -1,3 +1,23 @@
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
+
+
+/**@file operations.h
+* 
+* @brief Functions needed for initializing and processing
+*        communication with multiple connected devices.
+*
+*
+* @author willydlw
+* @date 30 Jan 2018
+* @bugs No known bugs
+*
+*/
+
 #ifndef OPERATIONS_H
 #define OPERATIONS_H
 
@@ -7,42 +27,48 @@
 #include "sensor.h"
 
 
-// macro constants
-#define MIN_NUMBER_COMMAND_LINE_ARGS 	 2
 
-#define SENSOR_INPUT_FILE_NAME_LENGTH 	64
+#define MIN_NUMBER_COMMAND_LINE_ARGS 	 2		/**< minimum number of command line arguments */
+
+#define SENSOR_INPUT_FILE_NAME_LENGTH 	64		/**< maximum string length, sensor input file name */
 
 
-
+/**
+* @brief Debugging Statistics
+*/
 typedef struct debug_stats_t{
 
-	int totalSensorCount;				/**<total number of sensors listed in input file */
-    int activeSensorCount;				/**<total number of sensors listed as active */
+	int totalSensorCount;				/**< total number of sensors listed in input file */
+    int activeSensorCount;				/**< total number of sensors listed as active */
 
-	int selectZeroCount;				/**<number of times select returns 0  */
-	int selectFailureCount;				/**<number of times select returns failure condition */
-    int sensorIdMismatchCount;			/**<number of times sensor id received in a message
-    
-    										does not match the registered id */
+	int selectZeroCount;				/**< number of times select returns 0  */
+	int selectFailureCount;				/**< number of times select returns failure condition */
 
-	int serialPortsOpened;				/**<number of serial connections successfully openend */
-    
-    //int default_comm_read_state_count;
-    //int default_comm_write_state_count;
+    int sensorIdMismatchCount;			/**< number of times sensor id received in a message
+   											 does not match the registered id */
 
-    uint32_t activeSensorList;			/**<bits set to 1 represent an active sensor
-    										bit position corresponds to sensor id */
-    uint32_t registeredSensorList;		/**<bits set to 1 represent sensor that has
-                                            completed the sensor registration state */
+	int serialPortsOpened;				/**< number of serial connections successfully openend */
+
+    uint32_t activeSensorList;			/**< bits set to 1 represent an active sensor
+    										 bit position corresponds to sensor id */
+
+    uint32_t registeredSensorList;		/**< bits set to 1 represent sensor that has
+                                             completed the sensor registration state */
 }DebugStats;
 
 
 
-
+/**
+* @brief Sensor Communication Operation
+*        defined by sensor object and
+*        its communication state.
+*/
 typedef struct sensor_comm_operation_t{
 	Sensor sensor;
 	CommState commState;
 }SensorCommOperation;
+
+
 
 
 /* @brief Initialize sensor communications array
@@ -118,7 +144,7 @@ bool import_sensor_data(
 *
 * @return void
 *
-* TODO: write routine to attempt to open active devices that failed
+* @TODO: write routine to attempt to open active devices that failed
 *	    to open serial connection
 *
 */
@@ -134,8 +160,8 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 *
 * @return void
 *
-* @note: do not call this function before establishing serial connection
-* tests for file descriptor != -1
+* @note: Do not call this function before establishing serial connection.
+*        Function tests for file descriptor != -1
 */
 void initialize_communication_states(SensorCommOperation *sensorCommArray, 
 	int totalSensorCount);

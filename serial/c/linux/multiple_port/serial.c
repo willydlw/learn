@@ -12,7 +12,7 @@
 *
 *
 * @author willydlw
-* @date 13 Jan 2018
+* @date 30 Jan 2018
 * @bugs No known bugs
 *
 */
@@ -23,7 +23,6 @@
 #define  _POSIX_C_SOURCE 199309L         // nanosleep is not IS0-C
 
 
-#include <stdio.h>     
 #include <string.h>         // strerror 
 #include <unistd.h>         // UNIX standard function definitions
 #include <fcntl.h>          // File control definitions
@@ -166,16 +165,6 @@ int serial_init(const char *serial_device_name, int baud_rate)
      terminalSettings.c_cflag &= (unsigned int)(~(CSIZE | PARENB));
      terminalSettings.c_cflag |= CS8;
 
-
-    /* prior version, remove if above output settings work
-    // set control flags
-    terminalSettings.c_cflag &= ~PARENB;            // no parity
-    terminalSettings.c_cflag &= ~CSTOPB;            // 1 stop bit
-    terminalSettings.c_cflag &= ~CSIZE;             // reset character size bits
-    terminalSettings.c_cflag |= CS8;                // data size 8 bit
-  
-    terminalSettings.c_cflag &= ~CRTSCTS;           // no flow control
-    */
     /* CREAD - enable receiver
        CLOCAL should be enabled to ensure that your program does not become 
        the 'owner' of the port subject to sporatic job control and hangup signals
@@ -251,13 +240,9 @@ speed_t  set_baud_speed(int baud_rate)
 
 
 /**
-* NAME : ssize_t serial_read(int fd, uint8_t *buf, size_t count)
-*
 * @brief Attempts to read up to count bytes and store in the buffer,
 *        starting at buf
 *
-* INPUTS: 
-*   Parameters:
 * @param[in]    fd                      file descriptor
 * @param[in]    count                   max number of bytes to read 
 *
@@ -266,7 +251,6 @@ speed_t  set_baud_speed(int baud_rate)
 * @return   success     number of bytes read
 *           failure     -1 and errno is set appropriately
 *       
-*
 */
 ssize_t serial_read(int fd, uint8_t *buf, size_t count){
 
@@ -292,8 +276,6 @@ ssize_t serial_read(int fd, uint8_t *buf, size_t count){
 * @param[in]    until                   byte that ends read
 * @param[in]    timeout                 stop reading after this much time (msec)
 *
-* OUTPUTS:
-*   Parameters:
 * @param[out]   buf                     bytes read are stored in buffer
 * @param[out]   bytes_read              number of bytes read and stored in buf
 *
@@ -337,9 +319,6 @@ SerialReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t unt
             continue;
         }
 
-        // debug
-        //fprintf(stderr, "%s: i = %ld, bytes_read = %ld, b = %x\n", __FUNCTION__, i, *bytes_read, b[0]); 
-
         buf[i] = b[0];
         i++;
         *bytes_read = i;
@@ -356,8 +335,6 @@ SerialReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t unt
 * @brief Writes up to count bytes from the buffer pointed to by buf,
 *        to the file pointed to by the file descriptor fd
 *
-* INPUTS: 
-*   Parameters:
 * @param[in]    fd                      file descriptor
 * @param[in]    buf                     pointer to buffer
 * @param[in]    count                   number of bytes to write
@@ -367,7 +344,6 @@ SerialReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t unt
 *               
 * @notes
 *       number of bytes written may be less than count
-*
 *
 */
 ssize_t serial_write(int fd, const char *buf, size_t numbytes){
@@ -380,7 +356,6 @@ ssize_t serial_write(int fd, const char *buf, size_t numbytes){
 * @brief Closes serial connection
 *
 * @param[in]            fd                      file descriptor
-*   Globals:
 *
 * @return success     zero
 *         failure     -1 and errno is set appropriately

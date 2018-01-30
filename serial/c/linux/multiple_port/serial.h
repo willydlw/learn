@@ -12,7 +12,7 @@
 *
 *
 * @author willydlw
-* @date 13 Jan 2018
+* @date 30 Jan 2018
 * @bugs No known bugs
 *
 */
@@ -85,8 +85,6 @@ speed_t  set_baud_speed(int baud_rate);
 * @brief Attempts to read up to count bytes and store in the buffer,
 *        starting at buf
 *
-* INPUTS: 
-*   Parameters:
 * @param[in]	fd                      file descriptor
 * @param[in]	count                   max number of bytes to read 
 *
@@ -115,8 +113,6 @@ ssize_t serial_read(int fd, uint8_t *buf, size_t count);
 * @param[in]    until                   byte that ends read
 * @param[in]    timeout                 stop reading after this much time (msec)
 *
-* OUTPUTS:
-*   Parameters:
 * @param[out]	buf                     bytes read are stored in buffer
 * @param[out]   bytes_read              number of bytes read and stored in buf
 *
@@ -138,8 +134,6 @@ SerialReadState serial_read_until(int fd, uint8_t* buf, int buf_max, uint8_t unt
 * @brief Writes up to count bytes from the buffer pointed to by buf,
 *        to the file pointed to by the file descriptor fd
 *
-* INPUTS: 
-*   Parameters:
 * @param[in] 	fd                      file descriptor
 * @param[in]  	buf                     pointer to buffer
 * @param[in]    count                   number of bytes to write
@@ -160,7 +154,6 @@ ssize_t serial_write(int fd, const char *buf, size_t numbytes);
 * @brief Closes serial connection
 *
 * @param[in]            fd                      file descriptor
-*   Globals:
 *
 * @return success     zero
 *         failure     -1 and errno is set appropriately
