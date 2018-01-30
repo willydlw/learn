@@ -1,7 +1,24 @@
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
+
+
+/**@file communication_state.c
+* 
+* @brief Communication State
+*
+*
+* @author willydlw
+* @date 30 Jan 2018
+* @bugs No known bugs
+*
+*/
 
 
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
 #include <termios.h>		// speed_t
 #include <sys/time.h>
@@ -30,58 +47,34 @@ const char* debug_read_write_message_state_string[] =
 
 
 
-const char* debug_comm_read_state_string[] = 
-	{	"NO_READ", "WAIT_FOR_CONNECTION", "READ_ACK", "READ_SENSOR" };
-
-
-
-const char* debug_comm_write_state_string[] = 
-	{	"NO_WRITE", "SEND_READY_SIGNAL", "SEND_RESET",  "SEND_STOP"};
-
-
-
 const char* debug_error_condition_string[] = { 
-	"SUCCESS", "SELECT_FAILURE", "SELECT_ZERO_COUNT", 
-	"SERIAL_WRITE_ERROR", "FD_ISSET_ERROR"  };
+	"SUCCESS", "SELECT_FAILURE", "SELECT_ZERO_COUNT" };
 
 
-/** Note: The messages and commands are in common with the 
-          paired Arduino programs. These would be easier to 
-          maintain if they were in a common file. 
 
-          Currently, using the Arduino IDE requires that the
-          file be in Arduino/libraries. As these are testing
-          files, and not yet production, the data is maintained
-          here and in sensor_coummunication.h
+/**
+* @brief Messages transmitted to connected device
 */
-
-// messages transmitted
-
+const char* ackResponse = "<ACK>";
+const char* readyResponse = "<RDY>";
 const char* resetCommand = "<RST>";
 const char* stopCommand = "<STP>";
 
 
-const char* ackResponse = "<ACK>";
-const char* nackResponse = "<NCK>";
-const char* readyResponse = "<RDY>";
 
-
-/** When another program opens the serial
-    connection, the Arduino program resets.
-
-    This message is broadcast to confirm
-    the connection has been made.
-**/
+/**
+* @brief Messages received from connected device
+*/
 const char* helloMessage = "<HLO>";
 const char* helloMessageHEX = "3C 48 4C 4F 3E";
 
 
-// message markers
+
+/**
+* @brief message markers
+*/
 const uint8_t start_marker = '<';
 const uint8_t end_marker = '>';
-
-
-
 
 
 

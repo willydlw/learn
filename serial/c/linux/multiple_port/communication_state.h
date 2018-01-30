@@ -1,18 +1,19 @@
-/****************************************************************
-* FILENAME:     communication_state.h
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
+
+
+/**@file communication_state.h
+* 
+* @brief Communication State
 *
-* DESCRIPTION:
-*       Finite state machine definitions for communication
-*       with another program.
 *
-*
-*
-*
-* AUTHOR:   Diane Williams        START DATE: 1/4/18
-*
-* CHANGES:
-*
-* DATE          WHO        DETAIL
+* @author willydlw
+* @date 30 Jan 2018
+* @bugs No known bugs
 *
 */
 
@@ -27,12 +28,9 @@
 #include <debuglog.h>
 
 
-/* ==========     Preprocessor Directives     ==========*/
 
-#define NUM_MESSAGE_STATES 7			// number of message states defined in enum MessageState
-
-#define READ_MESSAGE_LENGTH_BYTES 5		// every message received will be this length 
-#define WRITE_MESSAGE_LENGTH_BYTES 5	// every message transmitted will be this length
+#define READ_MESSAGE_LENGTH_BYTES  5	/**< every message received will be this length */
+#define WRITE_MESSAGE_LENGTH_BYTES 5	/**< every message transmitted will be this length */
 
 
 
@@ -43,53 +41,96 @@
 // and declared extern in the h file
 
 
-// string arrays used for debugging
-// states are numeric, when writing an error message
-// displaying a string provides more meaningful information
-
-extern const char* debug_comm_read_state_string[];
-extern const char* debug_comm_write_state_string[];
-
+/**
+* @brief String names of operational states
+*        for enum OperationalState.
+*
+*        Enum value is the index location of the corresponding
+*        string name.
+* 
+*        Used for logging messages.
+*/
 extern const char* debug_operational_state_string[];
+
+
+
+/**
+* @brief String names of read write message states
+*        for enum ReadWriteState.
+*
+*        Enum value is the index location of the corresponding
+*        string name.
+* 
+*        Used for logging messages.
+*/
 extern const char* debug_read_write_message_state_string[];
+
+
+
+/**
+* @brief String names of error conditions
+*        for enum ErrorCondition.
+*
+*        Enum value is the index location of the corresponding
+*        string name.
+* 
+*        Used for logging messages.
+*/
 extern const char* debug_error_condition_string[];
 
 
-// messages transmitted to other program
-extern const char* ackResponse;					// acknowledge message received, command implemented
-extern const char* nackResponse;				// nack - not acknowledge
-extern const char* readyResponse;
-extern const char* resetCommand;
-extern const char* stopCommand;
 
-// response messages received from other program
-
-extern const char* helloMessage;				// confirms connection
-extern const char* helloMessageHEX;				// hexadecimal string of helloMessage character values
-
-
-// message markers
-extern const uint8_t start_marker;
-extern const uint8_t end_marker;
+/**
+* @brief Messages transmitted to connected device
+*/
+extern const char* ackResponse;					/**< acknowledge message transitted after hello received */
+extern const char* readyResponse;				/**< ready message transmitted after sensor registration */
+extern const char* resetCommand;				/**< reset command message */
+extern const char* stopCommand;					/**< stop command message */
 
 
 
+/**
+* @brief Messages received from connected device
+*/
+extern const char* helloMessage;				/**< confirms connection */
+extern const char* helloMessageHEX;				/**< hexadecimal string of helloMessage character values
+													 used for logging */
 
-// operational states
+
+
+/**
+* @brief message markers
+*/
+extern const uint8_t start_marker;				/**< indicates start of message */
+extern const uint8_t end_marker;				/**< indicates end of message */
+
+
+
+/**
+* @brief Operational states
+*/
 typedef enum operational_state_t{
-	WAIT_FOR_CONNECTION ,
-	ACKNOWLEDGE_CONNECTION,
-	WAIT_FOR_SENSOR_ID,
-	SENSOR_REGISTRATION_COMPLETE,
-	RECEIVE_SENSOR_DATA,
-	NOT_OPERATIONAL
+	WAIT_FOR_CONNECTION ,					/**< waits for initial message from other connected device */
+	ACKNOWLEDGE_CONNECTION,					/**< send message acknowledging connection message received */
+	WAIT_FOR_SENSOR_ID,						/**< waits to received connected device id message */
+	SENSOR_REGISTRATION_COMPLETE,			/**< acknowledges device id received */
+	RECEIVE_SENSOR_DATA,					/**< receives connected device data */
+	NOT_OPERATIONAL							/**< no connection established, device not operational */
 }OperationalState;
 
 
 
-/*  messages are received byte by byte. As each byte is recevied,
-    the message state is changed to reflect which bytes have
-    been received, and which byte is expected next.
+/**
+* @brief Indicates message bytes that have been
+*        received or transmitted.
+*
+*        Messages are received/transmitted byte by 
+*        byte. As each byte is received/transmitted,
+*        the message state is changed to reflect which 
+*        bytes which byte is next.
+*
+*        Acts as read/write index in read/write buffers.
 */
 typedef enum read_write_message_state_t
 { 
@@ -102,8 +143,10 @@ typedef enum read_write_message_state_t
 
 
 
-
-
+/**
+* @brief Communications State
+*
+*/
 typedef struct comm_state_t{
     
     int fd;													/*< serial file descriptor */
@@ -126,14 +169,17 @@ typedef struct comm_state_t{
     															additional byte needed for string operations */
    
 
-    OperationalState ostate;								/*< present operational state */
+    OperationalState ostate;									/*< present operational state */
    
 }CommState;
 
 
 
 
-/*  error conditions help indicate exact sources of failure */
+/**
+* @brief error conditions help indicate pselect
+*        return state
+*/
 typedef enum error_conditions_t { 
 	SUCCESS, SELECT_FAILURE, SELECT_ZERO_COUNT 
 } ErrorCondition;
