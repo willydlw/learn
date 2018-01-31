@@ -1,3 +1,23 @@
+/**
+ * Copyright (c) 2017 willydlw
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See `main.c` for details.
+ */
+
+
+/**@file operations.c
+* 
+* @brief Functions needed for initializing and processing
+*        communication with multiple serial connections.
+*
+*
+* @author willydlw
+* @date 30 Jan 2018
+* @bugs No known bugs
+*
+*/
+
 #include <string.h>
 #include <signal.h>
 
@@ -5,6 +25,40 @@
 #include "serial.h"
 
 
+/* @brief Initialize sensor communications array
+*
+*
+* \par Process
+*
+*       [1] read sensor data input file
+*       [2] populate sensorCommArray elements with sensor data
+*
+*       [3] if read sensor data successful, continue
+*           else log fatal message, return false
+*
+*       [4] open serial connection for all active devices
+*           
+*       [5] if serial connection fails to open
+*              add unopened devices to list
+*
+*       [6] if there are unopened devices
+*              call handle failed serial connections function
+*
+*       [7] initialize communication states for each array element
+*       [8] return true
+*
+*
+* @param[in] sensorInputFileName 	input file containing sensor device information
+*                                   sensor name, sensor id, active state, serial 
+*									device path, and baud rate
+*
+* @param[out] sensorCommArray       array of sensor communication data structures
+*
+* @param[out] debugStats            initializes all data members to zero
+*
+* @return  success - true
+*          failure - false
+*/
 bool initialize_sensor_communication_operations(
 	const char* sensorInputFileName, 
 	SensorCommOperation *sensorCommArray, int saLength,
@@ -176,7 +230,47 @@ void initialize_communication_states(SensorCommOperation *sensorCommArray,
 
 
 
-
+/* @brief Populates sensor device data from input file
+*
+*  Input data file should contain
+*  		sensor name  	sensor id 	active state  	device path
+*
+*  in that order, separated by white space.
+*
+* \par Process
+*	[1] open input file 
+*	[2] if open fails return false
+*	[3] set all debugStats data members to zero
+*   [4] while (records read < total sensor count and read does not fail)
+*         read name, id, active state, device path,
+*   	  if id > MAX_SENSOR_ID
+*			log fatal message
+*			return false
+*		  else
+*         	store in sensorCommArray[id] element's sensor object
+*         increment total sensor count
+*         if active
+*           increment active sensor count
+*			use id to set corresponding bit in active sensor list
+*   [5] close file
+*   [6] return true
+*
+*
+*  The sensor id is used to set the corresponding bit position
+*  in the activeSensorList.
+*  		Example: sensor id 0 is active, bit 0 is set to 1
+*				 sensor id 1 is not active, bit 1 is set to 0
+*
+* @param[in] filename 		sensor data input file name
+* @param[in] salength 		number elements in sensorCommArray
+* @param[out] sensorCommArray 	array of SensorCommOperation structures
+* @param[out] debugStats 	data structure that contains debugging statistics
+*
+* @return success true  when finished reading file
+*         failure false when input file fails to open or 
+*						for an invalid sensor id
+*
+*/
 bool import_sensor_data(const char* filename, SensorCommOperation *sensorCommArray, 
 	int salength, DebugStats *debugStats)
 {
@@ -256,8 +350,20 @@ bool import_sensor_data(const char* filename, SensorCommOperation *sensorCommArr
 }
 
 
-
-void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCount, 
+/**
+* @brief Adds file descriptors to sets.
+*
+* @param[in] sensorCommArray    array of sensor communication structs
+* @param[in] length             number of elements in sensorCommArray
+* @param[out] readCount         number of sensor comm elements in read state
+* @param[out] writeCount        number of sensor comm elements in write state
+* @param[out] readfds           read file descriptor set
+* @param[out] writefds          write file descriptor set
+*
+* @return void 
+*
+*/
+void build_fd_sets(const SensorCommOperation *sensorCommArray, int length, int *readCount, 
 	int* writeCount, fd_set *readfds, fd_set *writefds)
 {
 	FD_ZERO(readfds);
@@ -280,6 +386,25 @@ void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCo
 
 }
 
+
+
+/**
+* @brief Reads messages from file descriptors ready to read.
+*
+* Updates readIndex and readBuffer when bytes are read. 
+* Sets receiveCompletedState when a complete message has been received,
+* and copies readBuffer to readCompletedBuffer.
+*
+* @param[in/out] sensorCommArray    array of sensor communication structs
+* @param[in] length             number of elements in sensorCommArray
+* 
+* @param[out] readfds           read file descriptor set
+*
+* @return completed List - bits set to one indicate complete message received.
+*                          Otherwise, bits are set to zero.
+*                          Bit position corresponds to sensor id.
+*                         
+*/
 uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *readfds)
 {
 	   
@@ -325,18 +450,6 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
             		sensorCommArray[i].commState.readIndex, 
             		&sensorCommArray[i].commState.readCompletedState);
 
-            
-        	/* TODO: Decide whether to call the function to process 
-        	   the completed message or build a list of those devices
-        	   with messages that are ready to process. 
-
-        	   if(sensorCommArray[i].commState.completedFlag){ call appropriate function }
-
-        	   Current solution is to just build a list. Final solution to be determined 
-        	   based on real-time requirements and processing required for different
-        	   device data and states.
-        	*/
-
         	if(sensorCommArray[i].commState.readCompletedState == true){
 
         		// use sensor id to set corresponding bit to 1
@@ -349,6 +462,26 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
 }
 
 
+
+
+/**
+* @brief Writes messages from file descriptors ready to write.
+*
+* Updates writeIndex when bytes are written.
+* Sets writeCompletedState to true when a complete message has been 
+* written. readIndex is reset to zero when complete message has 
+* been written.
+*
+* @param[in/out] sensorCommArray    array of sensor communication structs
+* @param[in] length             number of elements in sensorCommArray
+* 
+* @param[out] writefds           write file descriptor set
+*
+* @return completed list - bits set to one indicate complete message written.
+*                          Otherwise, bits are set to zero.
+*                          Bit position corresponds to sensor id.
+*                         
+*/
 uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *writefds)
 {
 	   
@@ -406,21 +539,10 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
 
 
 
-/**   comments are completely out of date, revise
+/**
+* @brief Advances readIndex as bytes are read.
 *
 *
-* NAME : ssize_t process_received_message_bytes(MessageState *msgState, 
-*												const uint8_t *buf, 
-*												ssize_t bytes_read, 
-*												uint8_t *responseData)
-*
-* DESCRIPTION: Based on the message state, bytes are copied from buf
-*              to the appropriate position in responsedData.
-*
-*			   The message state is updated with each byte transferred.
-*
-*			   The fucntion returns When the MESSAGE_COMPLETE state is reached,
-*			   or when bytes_read have been transferred. t
 *
 *              
 * INPUTS: 

@@ -9,7 +9,7 @@
 /**@file operations.h
 * 
 * @brief Functions needed for initializing and processing
-*        communication with multiple connected devices.
+*        communication with multiple serial connections.
 *
 *
 * @author willydlw
@@ -92,6 +92,7 @@ bool initialize_sensor_communication_operations(
 	DebugStats *debugStats);
 
 
+
 /* @brief Populates sensor device data from input file
 *
 *  Input data file should contain
@@ -155,6 +156,22 @@ void handle_failed_serial_connections(SensorCommOperation *sensorCommArray,
 
 /** @brief Initializes the commState data members
 *
+*\par State after initialization
+*
+*	ostate 			active 			WAIT_FOR_CONNECTION
+*					inactive        NOT_OPERATIONAL
+*
+*	readState 		active, true
+*					inactive, false 
+*
+*	writeState              false
+*   readCompletedState   	false
+*   writeCompletedState     false  
+*   readIndex 				START_MARKER
+*   writeIndex 				START_MARKER 
+*	
+*
+*
 * @param[out] sensorCommArray 	array of sensor device data structures
 * @param[in] salength 			number of elements in sensorCommArray
 *
@@ -181,13 +198,64 @@ int find_largest_fd(const SensorCommOperation *sensorCommArray,
 		int totalSensorCount);
 
 
-void build_fd_sets(SensorCommOperation *sensorCommArray, int length, int *readCount, 
+
+/**
+* @brief Adds file descriptors to sets.
+*
+* @param[in] sensorCommArray    array of sensor communication structs
+* @param[in] length             number of elements in sensorCommArray
+* @param[out] readCount         number of sensor comm elements in read state
+* @param[out] writeCount        number of sensor comm elements in write state
+* @param[out] readfds           read file descriptor set
+* @param[out] writefds          write file descriptor set
+*
+* @return void 
+*
+*/
+void build_fd_sets(const SensorCommOperation *sensorCommArray, int length, int *readCount, 
 	int* writeCount, fd_set *readfds, fd_set *writefds);
 
 
+
+/**
+* @brief Reads messages from file descriptors ready to read.
+*
+* Updates readIndex and readBuffer when bytes are read. 
+* Sets receiveCompletedState when a complete message has been received,
+* and copies readBuffer to readCompletedBuffer.
+*
+* @param[in/out] sensorCommArray    array of sensor communication structs
+* @param[in] length             number of elements in sensorCommArray
+* 
+* @param[out] readfds           read file descriptor set
+*
+* @return completed List - bits set to one indicate complete message received.
+*                          Otherwise, bits are set to zero.
+*                          Bit position corresponds to sensor id.
+*                         
+*/
 uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *readfds);
 
 
+
+/**
+* @brief Writes messages from file descriptors ready to write.
+*
+* Updates writeIndex when bytes are written.
+* Sets writeCompletedState to true when a complete message has been 
+* written. readIndex is reset to zero when complete message has 
+* been written.
+*
+* @param[in/out] sensorCommArray    array of sensor communication structs
+* @param[in] length             number of elements in sensorCommArray
+* 
+* @param[out] writefds           write file descriptor set
+*
+* @return completed list - bits set to one indicate complete message written.
+*                          Otherwise, bits are set to zero.
+*                          Bit position corresponds to sensor id.
+*                         
+*/
 uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *writefds);
 
 
