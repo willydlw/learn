@@ -540,45 +540,51 @@ uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *w
 
 
 /**
-* @brief Advances readIndex as bytes are read.
+* @brief Advances readIndex as bytes are copied from source to destination. Sets
+*        completed flag when end marker is read.
 *
 *
+* For all of the bytes: zero to salength-1, each byte is copied from the source
+* to the destination array. The destination array location is based on the 
+* readIndex value. The readIndex value is set to the next appropriate message
+* state (index location).
 *
-*              
-* INPUTS: 
-*   Parameters:
-*       MessageState* 	msgState       	  pointer to the message state
-*	    const uint8_t*  buf 			  buffer containing serial bytes read
-*	    ssize_t			bytes_read		  number of bytes in buf
+* When the message state is AWAITING_START_MARKER and the start marker
+* is not read, an error message is printed. The state does change
+* until the start marker is read.
 *
-* OUTPUTS:
+* When the message state is END_MARKER and
+*   - the end marker is read: the data byte is copied from source to 
+*     destination, followed a null-termination character added to
+*     the destination array. The completedFlag is set to true.
 *
-*	    MessageState*   msgState          message state is updated as bytes
-*                                         are read from buf and stored in 
-*										  responseData
+*   - the end marker is not read: An error message is logged. The
+*     destination data will be discarded.
 *
-*		uint8_t*		responseData      bytes extracted from buf
-*	    	
-*							  
-*   Return:
-*       type:			ssize_t
+*   readIndex is set to AWAITING_START_MARKER 
 *
-*		number of bytes that were not transferred from buf to responseData
+* If the default case of the message state machine is reached, an
+* error message is printed, and the message state is set to 
+* AWAITING_START_MARKER. Some data may be lost. The default case
+* should never be reached.
 *
-*      
-* NOTES:
-*		When the message state is AWAITING_START_MARKER and the start marker
-*		is not read, an error message is printed. The state does change
-*		until the start marker is read.
 *
-*		If the default case of the message state machine is reached, an
-*		error message is printed, and the message state is set to 
-*		AWAITING_START_MARKER. Some data may be lost. The default case
-*       should never be reached.
+* @param[in]  source				  array containing data bytes to be copied
+* @param[in]  slength                 number of elements in source array
 *
+* @param[in]  readIndex               index location where data will be copied
+*                                     into destination array. Also represents
+*                                     the message state.
+*
+* @param[out] destination             array to which source data is copied
+* @param[out] completedFlag           set to true when the END_MARKER has
+*                                     been recevied and copied into destination
+*
+* @return     readIndex value is returned
 */
+
 ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
-	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag)
+	uint8_t *source, ssize_t slength, ReadWriteMessageState readIndex, bool *completedFlag)
 {
 	
 	ssize_t i;
@@ -612,7 +618,7 @@ ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
 	   in that case.
 	*/
 
-	for(i = 0; i < bytesRead; ++i){
+	for(i = 0; i < slength; ++i){
 
 		log_trace("message state readIndex: %s, source[%ld]: %#4x, (char)source[%ld]: %c\n", 
 							debug_read_write_message_state_string[readIndex], i,

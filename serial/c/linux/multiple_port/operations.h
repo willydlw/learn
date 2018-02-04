@@ -259,8 +259,54 @@ uint32_t read_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *re
 uint32_t write_fdset(SensorCommOperation *sensorCommArray, int length, fd_set *writefds);
 
 
+
+/**
+* @brief Advances readIndex as bytes are copied from source to destination. Sets
+*        completed flag when end marker is read.
+*
+*
+* For all of the bytes: zero to salength-1, each byte is copied from the source
+* to the destination array. The destination array location is based on the 
+* readIndex value. The readIndex value is set to the next appropriate message
+* state (index location).
+*
+* When the message state is AWAITING_START_MARKER and the start marker
+* is not read, an error message is printed. The state does change
+* until the start marker is read.
+*
+* When the message state is END_MARKER and
+*   - the end marker is read: the data byte is copied from source to 
+*     destination, followed a null-termination character added to
+*     the destination array. The completedFlag is set to true.
+*
+*   - the end marker is not read: An error message is logged. The
+*     destination data will be discarded.
+*
+*   readIndex is set to AWAITING_START_MARKER 
+*
+* If the default case of the message state machine is reached, an
+* error message is printed, and the message state is set to 
+* AWAITING_START_MARKER. Some data may be lost. The default case
+* should never be reached.
+*
+*
+* @param[in]  source				  array containing data bytes to be copied
+* @param[in]  slength                 number of elements in source array
+*
+* @param[in]  readIndex               index location where data will be copied
+*                                     into destination array. Also represents
+*                                     the message state.
+*
+* @param[out] destination             array to which source data is copied
+* @param[out] completedFlag           set to true when the END_MARKER has
+*                                     been recevied and copied into destination
+*
+* @return     readIndex value is returned
+*/
 ReadWriteMessageState process_received_message_bytes(uint8_t *destination,
-	uint8_t *source, ssize_t bytesRead, ReadWriteMessageState readIndex, bool *completedFlag);
+	uint8_t *source, ssize_t slength, ReadWriteMessageState readIndex, bool *completedFlag);
+
+
 
 
 void process_operational_state(SensorCommOperation *sco, DebugStats *debugStats);
