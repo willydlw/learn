@@ -1,0 +1,58 @@
+
+https://en.wikipedia.org/wiki/Unix_domain_socket
+
+"A Unix domain socket or IPC socket (inter-process communication socket) is a data communications endpoint for exchanging data between processes executing on the same host operating system. Like named pipes, Unix domain sockets support transmission of a reliable stream of bytes (SOCK_STREAM, compare to TCP). In addition, they support ordered and reliable transmission of datagrams (SOCK_SEQPACKET, compare to SCTP), or unordered and unreliable transmission of datagrams (SOCK_DGRAM, compare to UDP). The Unix domain socket facility is a standard component of POSIX operating systems.
+
+The API for Unix domain sockets is similar to that of an Internet socket, but rather than using an underlying network protocol, all communication occurs entirely within the operating system kernel. Unix domain sockets use the file system as their address name space. Processes reference Unix domain sockets as file system inodes, so two processes can communicate by opening the same socket."
+
+
+
+
+https://troydhanson.github.io/network/Unix_domain_sockets.html
+
+
+Communication within a host
+
+Unix domain sockets allow communication between processes on the same host. Communication is bidirectional with stream sockets and unidirectional with datagram sockets.
+
+
+Comparison with named pipes for interprocess communication (IPC)
+
+Duplex
+	Stream sockets provide bi-directional communincation while named pipes are uni-directional
+
+Distinct Clients
+	Clients using sockets have an independent connection to the server. When using named pipes, clients may write to the pipe, but the server cannot distinguish the clients from each other. The server has only one descriptor to read from the named pipe. Random interleaving of data can occur if a client writes more that PIPE_BUF bytes in one operation. Unix domain sockets should be used if there are multiple clients that need to be distinguishable or clients write long messages to the server.
+
+
+
+Communications domains
+
+
+domain     range 			transport		address format				address struct
+
+AF_UNIX		same host		kernel			pathname					sockaddr_un
+
+AF_INET		any host		IPV4 stack		32-bit IPV4 address			sockaddr_in
+			w/ IPv4 						16-bit port number
+			connectivity
+
+AF_INET6	any host		IPV6 stack		128-bit IPV6 address		sockaddr_in6
+            w/ IPV6							16-bit port number
+            connectivity
+
+
+
+
+** Socket addresses in the Unix domain **
+
+Addresses are pathnames. The C structure sockaddr_un
+
+struct sockaddr_un{
+	sa_family_t		sun_family;			/* AF_UNIX */
+	char			sun_path[108];		/* socket pathname, NULL-terminated */
+}
+
+The field sun_path contains a regular pathname, pointing to a special file of type socket which will be created ar bind time.
+
+During communication the file will have no content, it is used only as a rendezvous point between processes.
