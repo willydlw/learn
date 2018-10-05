@@ -27,9 +27,21 @@ server.setblocking(0)
 # Bind the socket to the port
 server_address = ('localhost', 10000)
 print >>sys.stderr, 'starting up on %s port %s' % server_address
+
+''' server address
+
+    server_address = socket.gethostname()) makes socket visible to outside world
+    'localhost' or '127.0.0.1' is only visible within the same machine
+    server_address = '' specifies the socket is reachable by any address the machine has
+'''
 server.bind(server_address)
 
-# Listen for incoming connections
+''' Listen for incoming connections
+
+    The argument to listen tells the socket library that we want it to queue up 
+    as many as 5 connect requests (the normal max) before refusing outside connections. 
+    If the rest of the code is written properly, that should be plenty. 
+'''
 server.listen(5)
 
 """ The arguments to select() are three lists containing communication channels to monitor.
