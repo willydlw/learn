@@ -3,8 +3,12 @@ import zmq
 context = zmq.Context()
 socket = context.socket(zmq.REP)
 
+# uncomment to test on localhost ip
 #socket.bind("tcp://127.0.0.1:8888")
-socket.bind("tcp://100.0.0.182:8888")
+
+# bind the server to any interface with wildcard *
+# port 8888
+socket.bind("tcp://*:8888")
 
 while True:
     msg = socket.recv()
