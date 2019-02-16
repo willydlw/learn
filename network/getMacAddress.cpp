@@ -16,7 +16,23 @@
 #include <unistd.h>                 // close
 
 
-// mac address is six two hex digits fields, separated by 5 colons
+/**
+ * @param[out] macAddress - contains the mac address for the input
+ *                          interface name and domain.
+ *                          Format: xx:xx:xx:xx:xx:xx
+ * 
+ * memory for macAddress must be at least 18 bytes, 17 bytes for
+ * characters and one for null terminator.
+ * 
+ * @param[in] interfaceName - network interface name
+ *      examples: eth0, wlan0
+ * @param[in] domain speficies communication domain. Protocol family used.
+    *       Example: AF_INET - IPv4 Internet protocols
+    *                AF_INET6 - IPv6 Internet protocols
+ * 
+ * 
+ *  mac address is six two hex digits fields, separated by 5 colons
+ */
 int getMacAddress(char *macAddress, const char* interfaceName, int domain){
         int fd;
         struct ifreq ifr;
