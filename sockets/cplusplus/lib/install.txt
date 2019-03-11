@@ -1,0 +1,39 @@
+*******************************************************
+*  How to build and install the shared object library 
+*******************************************************
+
+    Use the install.sh script to build, install, and 
+    configure the library. 
+
+    Note: The install.sh must have executable permission. If
+    it does not, run the following command:
+
+    % sudo chmod +700 install.sh 
+
+
+    Simply type the following to build and install:
+
+    % ./install.sh  
+
+    That's it. The library is now installed. Nothing else to do.
+
+
+    
+    Note: there is no output indicating success. A build 
+    failure will produce output.
+
+    To see each step it executes, you can use the verbose
+    option:
+
+    % bash -v ./install.sh     
+    
+    
+ 
+*******************************************************
+*  UNINSTALL
+*******************************************************
+
+To uninstall the libary: 
+
+% make uninstall
+
