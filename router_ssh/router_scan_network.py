@@ -26,8 +26,6 @@ import paramiko
 import re
 import routerConstant
 
-import sshRouter
-
 
 '''
 OpenWrt command to scan for a network ESSID and return the signal level is
@@ -89,8 +87,6 @@ def main():
 
     SEARCH_FOR_ESSID = "MARBLE" #sparky"
     scan_command = create_scan_command(routerConstant.NETWORK_ESSID, SEARCH_FOR_ESSID)
-
-
 
     # create ssh object
     ssh = paramiko.SSHClient()
