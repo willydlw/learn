@@ -6,6 +6,9 @@ import sys
 import paramiko
 import re
 
+import sshRouter
+import routerConstant
+
 
 def create_ping_command(ip_addr, count = "3", timeout = "2"):
     # -W Time to wait for a response, in seconds. The option affects  
@@ -14,8 +17,6 @@ def create_ping_command(ip_addr, count = "3", timeout = "2"):
     
     # filter everything except statistics and the line below
     ping_command += " | grep transmitted -A1"
-
-    print ping_command
     
     return ping_command 
 
@@ -89,9 +90,7 @@ def extract_packet_loss(thelist):
 
 
 def handle_network_reachable(req):
-    router_user_name = "root"
-    router_password = "P@ssw0rd"
-
+   
     packet_loss_val = -1
     average_time_val = -1
 
@@ -101,41 +100,34 @@ def handle_network_reachable(req):
     ping_command = create_ping_command(req.dest_ip_addr)
 
     rospy.loginfo("ping command: %s", ping_command)
-
-    # create ssh object
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    try:
-        rospy.loginfo("sys.argv[1] %s", sys.argv[1])
-        ssh.connect(sys.argv[1], username=router_user_name, password=router_password)     
-    except Exception as e:
-        rospy.logerr("SSH connection error: %s", e)
-        return packet_loss_val, average_time_val
         
-    output = run_command(ssh, ping_command)
+    output = run_command(sshRouter.ssh, ping_command)
 
     if output:
         output_list = output.split()                # split list into strings
         packet_loss_val = extract_packet_loss(output_list)
         average_time_val = extract_avg_time(output_list)
-       
-    ssh.close()
-
+    
     rospy.loginfo("packet loss %f, avg time %f", packet_loss_val, average_time_val)
     
     return packet_loss_val, average_time_val
 
 
 def network_reachable_server():
+
     rospy.init_node('network_reachable_server', log_level=rospy.INFO)
-    
+
     if len(sys.argv) < 2:
         rospy.logfatal("missing argv[1], router ip address")
         exit(2)
 
+    # initialize global 
+    sshRouter.init(sys.argv[1], routerConstant.SSH_USERNAME, routerConstant.SSH_PASSWORD)
+
+    # register service 
     s = rospy.Service('network_reachable', CommNodeReachable, handle_network_reachable)
     rospy.spin()
+    sshRouter.ssh.close()
 
 
 if __name__ == "__main__":
