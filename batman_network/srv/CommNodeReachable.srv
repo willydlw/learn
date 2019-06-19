@@ -1,9 +1,6 @@
 ## request fields
 string dest_ip_addr
-string ping_timeout
-string ping_count
 ---
 ## response fields
-bool reachable
-#float32 packet_loss
-#float32 avg_rtt         # ms
+float32 packet_loss
+float32 avg_time         # ms
